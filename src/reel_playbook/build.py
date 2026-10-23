@@ -1,8 +1,7 @@
 """The pipeline: spec in, gated project out.
 
-Every step writes its artifact, records gate evidence, and moves the state
-machine forward. Nothing here reaches around the book: the book owns the state,
-the gates and the database row.
+Every step writes its artifact into the database, records gate evidence, and
+moves the state machine forward. The only file written is ``out.mp4``.
 """
 
 from __future__ import annotations
@@ -27,53 +26,51 @@ HYPERFRAMES = "hyperframes@0.8.188"
 WORDS_PER_SECOND = 2.5
 LEGACY_STEPS = {"assets": "look", "compose": "voice", "render": "print"}
 LEGACY_LOCKS = {"ASSETS": "VOICE", "COMPOSE": "VOICE", "RENDER": "PRINT"}
+TEXT_SUFFIX = {".md", ".html", ".json", ".txt", ".svg", ".csv"}
+KEEP = {"out.mp4"}
 
 
 class BuildError(RuntimeError):
     pass
 
 
-def find_spec(workspace: Workspace, slug: str, spec: Path | str | None = None) -> Path:
-    if spec is not None:
-        path = Path(spec)
-        if not path.exists():
-            raise BuildError(f"no spec at {path}")
-        return path
-    exact = workspace.specs / f"{slug}.json"
-    if exact.exists():
-        return exact
-    matches = sorted(workspace.specs.glob(f"*{slug}*.json"))
-    if len(matches) == 1:
-        return matches[0]
-    raise BuildError(f"no spec for {slug} in {workspace.specs}; pass --spec")
-
-
 def build(
     workspace: Workspace,
-    spec_path: Path | str,
+    target: str,
     *,
     whisper_size: str = "base.en",
     threads: int = 4,
     render: bool = True,
     quality: str = "delivery",
 ) -> ReelPlaybook:
-    spec = load_spec(spec_path)
-    book = _prepare(workspace, spec)
+    path = Path(target)
+    if path.suffix == ".json" and path.exists():
+        spec = load_spec(path)
+        book = _prepare(workspace, spec)
+        store_spec(book, spec)
+    else:
+        book = ReelPlaybook.open(workspace, target)
+        spec = stored_spec(book)
+        if book.state != "IDEA":
+            book.rewind("idea", "rebuild from stored spec")
+
     write_board(book, spec)
     book.pass_gate(
         "idea",
-        f"{Path(spec_path).name}: {spec.title!r}, {len(spec.scenes)} scenes, "
+        f"spec stored in db: {spec.title!r}, {len(spec.scenes)} scenes, "
         f"{len(spec.sources)} sources",
     )
     book.pass_gate(
         "hook",
-        f"scene 1 overlay {spec.scenes[0].overlay!r} ({len(spec.scenes[0].overlay)} "
-        f"chars) names the payoff; label {spec.scenes[0].label!r}",
+        f"scene 1 overlay {spec.scenes[0].overlay!r} "
+        f"({len(spec.scenes[0].overlay)} chars) names the payoff; "
+        f"label {spec.scenes[0].label!r}",
     )
     book.pass_gate(
         "board",
-        f"storyboard from spec: {len(spec.scenes)} scenes, every scene has narration, "
-        f"overlay and label; durations estimated at {WORDS_PER_SECOND * 60:g} wpm",
+        f"storyboard from spec: {len(spec.scenes)} scenes, every scene has "
+        f"narration, overlay and label; durations estimated at "
+        f"{WORDS_PER_SECOND * 60:g} wpm",
     )
 
     run_look(book, spec)
@@ -113,13 +110,24 @@ def build(
     return book
 
 
+def stored_spec(book: ReelPlaybook) -> ReelSpec:
+    raw = book.text("spec.json")
+    if raw is None:
+        raise BuildError(f"{book.slug} has no spec.json; import one first")
+    return ReelSpec.model_validate(json.loads(raw))
+
+
+def store_spec(book: ReelPlaybook, spec: ReelSpec) -> None:
+    book.put_text("spec.json", json.dumps(spec.model_dump(), indent=2), kind="spec")
+
+
 def _prepare(workspace: Workspace, spec: ReelSpec) -> ReelPlaybook:
     if workspace.catalog().get_project(spec.slug) is not None:
         book = ReelPlaybook.open(workspace, spec.slug)
         if book.state != "IDEA":
             book.rewind("idea", "rebuild from spec")
         return book
-    return ReelPlaybook.create(
+    return _create_fresh(
         workspace,
         spec.slug,
         size=(1080, 1920),
@@ -128,7 +136,7 @@ def _prepare(workspace: Workspace, spec: ReelSpec) -> ReelPlaybook:
     )
 
 
-def write_board(book: ReelPlaybook, spec: ReelSpec) -> Path:
+def write_board(book: ReelPlaybook, spec: ReelSpec) -> None:
     lines = ["# STORYBOARD", ""]
     cursor = 0.0
     for index, scene in enumerate(spec.scenes, start=1):
@@ -144,12 +152,8 @@ def write_board(book: ReelPlaybook, spec: ReelSpec) -> Path:
             "",
         ]
         cursor = round(cursor + estimate, 2)
-    lines += [
-        "Durations are estimates until step 5. The voice is the clock.",
-        "",
-    ]
-    path = book.root / "STORYBOARD.md"
-    path.write_text("\n".join(lines))
+    lines += ["Durations are estimates until step 5. The voice is the clock.", ""]
+    book.put_text("STORYBOARD.md", "\n".join(lines))
 
     rows = "".join(
         f"<tr><td>{i}</td><td>{_esc(scene.overlay)}</td>"
@@ -166,8 +170,7 @@ letter-spacing:.14em;text-transform:uppercase}}</style></head>
 <table><tr><th>#</th><th>overlay</th><th>label</th><th>narration</th></tr>{rows}</table>
 </body></html>
 """
-    (book.root / "boards" / "storyboard.html").write_text(html)
-    return path
+    book.put_text("boards/storyboard.html", html)
 
 
 def run_look(book: ReelPlaybook, spec: ReelSpec) -> list[dict]:
@@ -175,35 +178,23 @@ def run_look(book: ReelPlaybook, spec: ReelSpec) -> list[dict]:
     written = []
     for index, scene in enumerate(spec.scenes, start=1):
         visual = tool.render(spec.slug, scene, index)
-        sha, ref = book.store.put_bytes(visual.data, visual.ext)
-        key = book.store.key(visual.tool, visual.tool_version, visual.seed, index)
-        book.catalog.cache_put(key, sha, visual.tool, visual.tool_version)
-        book.catalog.put_asset(
-            {
-                "sha256": sha,
-                "ext": visual.ext,
-                "kind": "visual",
-                "media_type": visual.media_type,
-                "bytes": len(visual.data),
-                "width": 1080,
-                "height": 1920,
-                "created_at": now(),
-            }
-        )
-        book.catalog.link_asset(
-            spec.slug,
-            sha,
-            f"visual:s{index}",
-            {
+        path = f"assets/visuals/s{index}.{visual.ext}"
+        sha = book.put_bytes(
+            path,
+            visual.data,
+            visual.ext,
+            kind="visual",
+            media_type=visual.media_type,
+            meta={
                 "tool": visual.tool,
                 "tool_version": visual.tool_version,
                 "seed": visual.seed,
                 "scene": index,
             },
         )
-        target = book.root / "assets" / "visuals" / f"s{index}.{visual.ext}"
-        book.store.materialize(ref, target)
-        written.append({"index": index, "ref": ref, "path": target, "visual": visual})
+        key = book.store.key(visual.tool, visual.tool_version, visual.seed, index)
+        book.catalog.cache_put(key, sha, visual.tool, visual.tool_version)
+        written.append({"index": index, "sha": sha, "path": path, "visual": visual})
 
     frame = [
         "# FRAME",
@@ -217,16 +208,15 @@ def run_look(book: ReelPlaybook, spec: ReelSpec) -> list[dict]:
         "- plates: procedural SVG, 1080x1920, seeded per scene",
         "",
     ]
-    (book.root / "frame.md").write_text("\n".join(frame))
+    book.put_text("frame.md", "\n".join(frame))
 
     credits = ["# CREDITS", "", "All visuals generated locally. No third-party media.", ""]
     credits += [
         f"- s{row['index']}: {row['visual'].tool} {row['visual'].tool_version}, "
-        f"seed {row['visual'].seed}, {row['ref']}"
+        f"seed {row['visual'].seed}, {row['sha'][:12]}"
         for row in written
     ]
-    credits.append("")
-    (book.root / "assets" / "CREDITS.md").write_text("\n".join(credits))
+    book.put_text("assets/CREDITS.md", "\n".join(credits) + "\n")
     return written
 
 
@@ -244,58 +234,51 @@ def run_voice(
     if book.tokens.tts_model != model:
         book.set_token("tts_model", model)
 
-    master = book.root / "assets" / "voice.wav"
     spoken = _spoken(spec)
     with book.workspace.scratch() as scratch:
         raw = scratch / "master.raw.wav"
+        master = scratch / "voice.wav"
         synthesize_master(PocketTTS(model=model), spoken, voice, raw)
         report = mix(raw, master, scratch)
 
-    try:
-        result = FasterWhisper(size=whisper_size, threads=threads).align(master, spec)
-    except AlignError:
-        raise
-    expected = len(spec.sentences())
-    if len(result.cues) != expected:
-        raise BuildError(f"aligner returned {len(result.cues)} cues, expected {expected}")
-
-    write_cues(book.root / "captions.json", result.cues)
+        try:
+            result = FasterWhisper(size=whisper_size, threads=threads).align(master, spec)
+        except AlignError:
+            raise
+        expected = len(spec.sentences())
+        if len(result.cues) != expected:
+            raise BuildError(
+                f"aligner returned {len(result.cues)} cues, expected {expected}"
+            )
+        book.put_bytes(
+            "assets/voice.wav",
+            master.read_bytes(),
+            "wav",
+            kind="audio",
+            media_type="audio/wav",
+            meta={
+                "voice": voice,
+                "tts_model": model,
+                "loudness": report.loudness,
+                "peak": report.peak,
+                "coverage": result.coverage,
+                "backend": result.backend,
+            },
+        )
+        captions = scratch / "captions.json"
+        write_cues(captions, result.cues)
+        book.put_text("captions.json", captions.read_text(), kind="captions")
     book.catalog.put_cues(book.slug, result.cues)
-    sha, ref = book.store.put_file(master)
-    book.catalog.put_asset(
-        {
-            "sha256": sha,
-            "ext": "wav",
-            "kind": "audio",
-            "media_type": "audio/wav",
-            "bytes": master.stat().st_size,
-            "duration_s": report.duration,
-            "width": None,
-            "height": None,
-            "created_at": now(),
-        }
-    )
-    book.catalog.link_asset(
-        book.slug,
-        sha,
-        "voice",
-        {
-            "voice": voice,
-            "tts_model": model,
-            "loudness": report.loudness,
-            "peak": report.peak,
-            "coverage": result.coverage,
-            "backend": result.backend,
-        },
-    )
     book.set_token("duration", round(report.duration, 3))
     return report
 
 
 def run_waveforms(book: ReelPlaybook, spec: ReelSpec) -> list[dict]:
-    master = book.root / "assets" / "voice.wav"
     cues = book.cue_dicts()
     written = []
+    master = book.read("assets/voice.wav")
+    if master is None:
+        return written
     for index, scene in enumerate(spec.scenes, start=1):
         if not scene.waveform:
             continue
@@ -305,30 +288,20 @@ def run_waveforms(book: ReelPlaybook, spec: ReelSpec) -> list[dict]:
         start = min(float(cue["start"]) for cue in span)
         end = max(float(cue["end"]) for cue in span)
         with book.workspace.scratch() as scratch:
-            visual = Waveform().render(spec.slug, index, master, start, end, scratch)
-        sha, ref = book.store.put_bytes(visual.data, visual.ext)
-        book.catalog.put_asset(
-            {
-                "sha256": sha,
-                "ext": visual.ext,
-                "kind": "visual",
-                "media_type": visual.media_type,
-                "bytes": len(visual.data),
-                "width": 920,
-                "height": 260,
-                "created_at": now(),
-            }
+            source = scratch / "voice.wav"
+            source.write_bytes(master)
+            visual = Waveform().render(spec.slug, index, source, start, end, scratch)
+        path = f"assets/visuals/s{index}-wave.{visual.ext}"
+        book.put_bytes(
+            path,
+            visual.data,
+            visual.ext,
+            kind="visual",
+            media_type=visual.media_type,
+            meta={"tool": visual.tool, "tool_version": visual.tool_version,
+                  "seed": visual.seed, **visual.meta},
         )
-        book.catalog.link_asset(
-            spec.slug,
-            sha,
-            f"visual:s{index}:wave",
-            {"tool": visual.tool, "tool_version": visual.tool_version,
-             "seed": visual.seed, "scene": index, **visual.meta},
-        )
-        target = book.root / "assets" / "visuals" / f"s{index}-wave.{visual.ext}"
-        book.store.materialize(ref, target)
-        written.append({"index": index, "path": target})
+        written.append({"index": index, "path": path})
     return written
 
 
@@ -338,29 +311,43 @@ def run_compose(book: ReelPlaybook, spec: ReelSpec) -> dict[str, Path]:
         raise BuildError("no duration; run the voice step first")
     visuals: dict[int, list[str]] = {}
     for index in range(1, len(spec.scenes) + 1):
-        plates = []
-        for path in sorted((book.root / "assets" / "visuals").glob(f"s{index}.*")):
-            plates.append(str(path.relative_to(book.root)))
-        for path in sorted((book.root / "assets" / "visuals").glob(f"s{index}-*")):
-            plates.append(str(path.relative_to(book.root)))
+        plates = sorted(
+            row["path"]
+            for row in book.artifacts()
+            if row["path"].startswith(f"assets/visuals/s{index}.")
+        )
+        plates += sorted(
+            row["path"]
+            for row in book.artifacts()
+            if row["path"].startswith(f"assets/visuals/s{index}-")
+        )
         visuals[index] = plates
-    return compose(book.root, spec, book.cue_dicts(), float(total), visuals)
+    with book.workspace.scratch() as scratch:
+        written = compose(scratch, spec, book.cue_dicts(), float(total), visuals)
+        for path in written.values():
+            relative = str(path.relative_to(scratch))
+            book.put_text(relative, path.read_text(), kind="composition")
+    return written
 
 
 def run_check(book: ReelPlaybook) -> str:
-    return _npx(["check", "."], book.root)
+    with book.workspace.scratch() as scratch:
+        book.materialize(scratch)
+        return _npx(["check", "."], scratch)
 
 
 def run_render(book: ReelPlaybook, *, quality: str = "delivery") -> Path:
-    _npx(["render", "--quality", quality, "--output", "out.mp4"], book.root)
-    out = book.root / "out.mp4"
-    if not out.exists():
-        raise BuildError("render finished but out.mp4 is missing")
-    sha, _ = book.store.put_file(out)
+    with book.workspace.scratch() as scratch:
+        book.materialize(scratch)
+        _npx(["render", "--quality", quality, "--output", "out.mp4"], scratch)
+        rendered = scratch / "out.mp4"
+        if not rendered.exists():
+            raise BuildError("render finished but out.mp4 is missing")
+        shutil.copy2(rendered, book.render_path)
     book.catalog.put_render(
         book.slug,
         {
-            "sha256": sha,
+            "sha256": book.store.sha(book.render_path.read_bytes()),
             "duration_s": book.tokens.duration,
             "fps": float(book.tokens.fps),
             "loudness": None,
@@ -368,7 +355,7 @@ def run_render(book: ReelPlaybook, *, quality: str = "delivery") -> Path:
             "verified_at": now(),
         },
     )
-    return out
+    return book.render_path
 
 
 def run_gate_check(book: ReelPlaybook, *, video: str | None = None) -> bool:
@@ -380,26 +367,56 @@ def run_gate_check(book: ReelPlaybook, *, video: str | None = None) -> bool:
     return report.ok
 
 
-def import_legacy(workspace: Workspace, path: Path | str) -> ReelPlaybook:
-    """Bring a 0.0.1 project directory into the one database."""
+def import_project(workspace: Workspace, path: Path | str) -> ReelPlaybook:
+    """Ingest a project directory: 0.0.1 (STATE.json) or 0.1.0 (files)."""
     source = Path(path).resolve()
-    state_file = source / "STATE.json"
-    if not state_file.exists():
-        raise BuildError(f"no STATE.json in {source}")
-    legacy = json.loads(state_file.read_text())
+    if not source.is_dir():
+        raise BuildError(f"{source} is not a directory")
+    legacy = source / "STATE.json"
+    snapshot = None
+    if not legacy.exists():
+        snapshot = workspace.tmp / f"import-{source.name}"
+        shutil.rmtree(snapshot, ignore_errors=True)
+        shutil.copytree(source, snapshot, ignore=shutil.ignore_patterns("out.mp4"))
+    if legacy.exists():
+        book = _import_state(workspace, source, json.loads(legacy.read_text()))
+    elif workspace.catalog().get_project(source.name) is not None:
+        book = ReelPlaybook.open(workspace, source.name)
+    else:
+        spec_file = workspace.root / "specs" / f"{source.name}.json"
+        if not spec_file.exists():
+            raise BuildError(f"{source.name} is not in the database and has no spec")
+        spec = load_spec(spec_file)
+        book = _create_fresh(
+            workspace,
+            spec.slug,
+            size=(1080, 1920),
+            language=spec.tts_model,
+            tts_model=spec.tts_model,
+        )
+        store_spec(book, spec)
+
+    spec_file = workspace.root / "specs" / f"{book.slug}.json"
+    if book.text("spec.json") is None and spec_file.exists():
+        store_spec(book, load_spec(spec_file))
+
+    _ingest_dir(book, snapshot or source)
+    if snapshot is not None:
+        shutil.rmtree(snapshot, ignore_errors=True)
+    if source != book.root and (source / "out.mp4").exists():
+        shutil.copy2(source / "out.mp4", book.render_path)
+    book.save()
+    _prune(book.root)
+    return book
+
+
+def _import_state(workspace: Workspace, source: Path, legacy: dict) -> ReelPlaybook:
     slug = source.name
     if workspace.catalog().get_project(slug) is not None:
-        book = ReelPlaybook.open(workspace, slug)
-        if not book.cues():
-            cues = _legacy_cues(source)
-            if cues:
-                book.catalog.put_cues(slug, cues)
-        _copy_artifacts(source, book.root)
-        book.save()
-        return book
+        return ReelPlaybook.open(workspace, slug)
 
     tokens = legacy.get("tokens", {})
-    book = ReelPlaybook.create(
+    book = _create_fresh(
         workspace,
         slug,
         fps=int(tokens.get("fps", 30)),
@@ -414,66 +431,55 @@ def import_legacy(workspace: Workspace, path: Path | str) -> ReelPlaybook:
     book.locked_at = _legacy_locks(legacy.get("locked_at", {}))
     for gate_id, gate in legacy.get("gates", {}).items():
         step = gate_id if gate_id in {spec.id for spec in STEPS} else LEGACY_STEPS.get(gate_id)
-        if step is None:
-            continue
-        book._gates[step] = _legacy_gate(step, gate)
+        if step is not None:
+            book._gates[step] = _legacy_gate(step, gate)
     book.state = legacy.get("state", "DONE")
     cues = _legacy_cues(source)
     if cues:
         book.catalog.put_cues(slug, cues)
-    _copy_artifacts(source, book.root)
-    book.save()
-
-    for item in sorted(source.iterdir()):
-        if item.is_file() and item.suffix in (".mp4", ".wav", ".png"):
-            _link_file(book, item, item.stem)
-    for wav in sorted((source / "assets").glob("*.wav")):
-        _link_file(book, wav, f"audio:{wav.stem}")
-    for html in sorted((source / "compositions").glob("*.html")):
-        _link_file(book, html, f"composition:{html.stem}")
-    for wav in sorted((source / "assets").glob("scene-*.wav")):
-        try:
-            scene = int(wav.stem.rsplit("-", 1)[-1])
-        except ValueError:
-            continue
-        cues = book.cue_dicts()
-        if not cues:
-            break
-        span = [cue for cue in cues if int(cue["scene"]) == scene]
-        if span:
-            duration = max(float(cue["end"]) for cue in span)
-            book.catalog.link_asset(
-                slug, _sha(book, wav), f"audio:scene-{scene:02d}", {"scene": scene,
-                                                                  "duration": duration}
-            )
     book.save()
     return book
 
 
-def _link_file(book: ReelPlaybook, path: Path, role: str) -> None:
-    sha, ref = book.store.put_file(path)
-    kind = {"mp4": "video", "wav": "audio", "png": "visual", "html": "document"}.get(
-        path.suffix.lstrip("."), "file"
-    )
-    book.catalog.put_asset(
-        {
-            "sha256": sha,
-            "ext": path.suffix.lstrip(".") or "bin",
-            "kind": kind,
-            "media_type": None,
-            "bytes": path.stat().st_size,
-            "duration_s": None,
-            "width": None,
-            "height": None,
-            "created_at": now(),
-        }
-    )
-    book.catalog.link_asset(book.slug, sha, role, {"ref": ref, "name": path.name})
+def _ingest_dir(book: ReelPlaybook, source: Path) -> None:
+    for item in sorted(source.rglob("*")):
+        if not item.is_file():
+            continue
+        relative = item.relative_to(source)
+        if str(relative) in KEEP or relative.parts[0] in {"tmp", "__pycache__"}:
+            continue
+        if str(relative) == "manifest.json":
+            continue
+        ext = item.suffix.lower()
+        if ext in TEXT_SUFFIX:
+            book.put_text(str(relative), item.read_text())
+        elif ext in {".wav", ".png", ".jpg", ".jpeg", ".webp", ".mp4"}:
+            kind = {".wav": "audio", ".mp4": "video"}.get(ext, "visual")
+            book.put_bytes(
+                str(relative), item.read_bytes(), ext.lstrip("."), kind=kind
+            )
 
 
-def _sha(book: ReelPlaybook, path: Path) -> str:
-    sha, _ = book.store.put_file(path)
-    return sha
+def _create_fresh(workspace: Workspace, slug: str, **kwargs) -> ReelPlaybook:
+    """Create a project, keeping a render that is already in the folder."""
+    target = workspace.project_dir(slug)
+    keep = (target / "out.mp4").read_bytes() if (target / "out.mp4").exists() else None
+    _prune(target)
+    (target / "out.mp4").unlink(missing_ok=True)
+    book = ReelPlaybook.create(workspace, slug, **kwargs)
+    if keep is not None:
+        (target / "out.mp4").write_bytes(keep)
+    return book
+
+
+def _prune(root: Path) -> None:
+    for item in root.iterdir():
+        if item.name in KEEP:
+            continue
+        if item.is_dir():
+            shutil.rmtree(item, ignore_errors=True)
+        else:
+            item.unlink()
 
 
 def _legacy_locks(locks: dict) -> dict:
@@ -507,6 +513,31 @@ def _legacy_gate(step: str, gate: dict):
     )
 
 
+def _legacy_cues(source: Path) -> list[dict]:
+    """Cues from a 0.0.1 STORYBOARD.md: frame heading plus narration line."""
+    board = source / "STORYBOARD.md"
+    if not board.exists():
+        return []
+
+    cues: list[dict] = []
+    scene, span = 0, None
+    for line in board.read_text().splitlines():
+        heading = re.match(
+            r"^## Frame (\d+):.*\((\d+(?:\.\d+)?)-(\d+(?:\.\d+)?) s\)", line
+        )
+        if heading:
+            scene = int(heading.group(1))
+            span = (float(heading.group(2)), float(heading.group(3)))
+            continue
+        narration = line.removeprefix("- narration:").strip()
+        if scene and span and line.startswith("- narration:") and narration:
+            cues.append(
+                {"scene": scene, "start": span[0], "end": span[1], "text": narration}
+            )
+            scene, span = 0, None
+    return cues
+
+
 def _spoken(spec: ReelSpec) -> str:
     script = spec.script()
     for written, said in spec.pronounce.items():
@@ -536,9 +567,7 @@ def _npx(args: list[str], cwd: Path) -> str:
 
 
 def _esc(text: str) -> str:
-    return (
-        text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    )
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 __all__ = [
@@ -546,8 +575,7 @@ __all__ = [
     "MixError",
     "StateError",
     "build",
-    "find_spec",
-    "import_legacy",
+    "import_project",
     "run_check",
     "run_compose",
     "run_gate_check",
@@ -555,40 +583,7 @@ __all__ = [
     "run_render",
     "run_voice",
     "run_waveforms",
+    "store_spec",
+    "stored_spec",
     "write_board",
 ]
-
-
-def _copy_artifacts(source: Path, target: Path) -> None:
-    """Copy the files the 0.0.1 project used, so the canonical root is complete."""
-    for name in ("STORYBOARD.md", "frame.md", "index.html", "BRIEF.md", "out.mp4"):
-        item = source / name
-        if item.is_file():
-            shutil.copy2(item, target / name)
-    for name in ("assets", "compositions", "boards"):
-        item = source / name
-        if item.is_dir():
-            shutil.copytree(item, target / name, dirs_exist_ok=True)
-
-
-def _legacy_cues(source: Path) -> list[dict]:
-    """Cues from a 0.0.1 STORYBOARD.md: frame heading plus narration line."""
-    board = source / "STORYBOARD.md"
-    if not board.exists():
-        return []
-
-    cues: list[dict] = []
-    scene, span = 0, None
-    for line in board.read_text().splitlines():
-        heading = re.match(r"^## Frame (\d+):.*\((\d+(?:\.\d+)?)-(\d+(?:\.\d+)?) s\)", line)
-        if heading:
-            scene = int(heading.group(1))
-            span = (float(heading.group(2)), float(heading.group(3)))
-            continue
-        narration = line.removeprefix("- narration:").strip()
-        if scene and span and line.startswith("- narration:") and narration:
-            cues.append(
-                {"scene": scene, "start": span[0], "end": span[1], "text": narration}
-            )
-            scene, span = 0, None
-    return cues

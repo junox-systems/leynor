@@ -1,7 +1,5 @@
 """The state machine: six gates, locks, attempts, rewind."""
 
-import json
-
 import pytest
 
 from reel_playbook import ReelPlaybook, StateError
@@ -20,7 +18,7 @@ def book(ws):
 
 def test_create_writes_db_row_and_manifest(ws, book):
     assert ws.catalog().get_project("ep-01")["state"] == "IDEA"
-    payload = json.loads((book.root / "manifest.json").read_text())
+    payload = book.manifest()
     assert payload["slug"] == "ep-01"
     assert payload["state"] == "IDEA"
     assert payload["tokens"]["fps"] == 30
@@ -134,12 +132,13 @@ def test_flow_progress_and_status(book):
     assert [entry.action for entry in report.logs][-2:] == ["init", "pass"]
 
 
-def test_status_artifacts_are_relative_to_root(book):
+def test_status_artifacts_come_from_the_db(book):
     flow = book.flow()
     assert "STORYBOARD.md" in flow.steps[2].artifacts
     assert flow.steps[2].artifacts["STORYBOARD.md"] is False
-    (book.root / "STORYBOARD.md").write_text("# STORYBOARD\n")
+    book.put_text("STORYBOARD.md", "# STORYBOARD\n")
     assert book.flow().steps[2].artifacts["STORYBOARD.md"] is True
+    assert not (book.root / "STORYBOARD.md").exists()
 
 
 def test_repr(book):

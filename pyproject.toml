@@ -10,6 +10,8 @@ dependencies = [
   "pocket-tts>=4.0.1",
   "torch>=2.6",
   "faster-whisper>=1.1",
+  "psycopg[binary]>=3.2",
+  "django>=5.2",
 ]
 
 [project.scripts]

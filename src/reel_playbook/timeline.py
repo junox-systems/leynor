@@ -50,10 +50,12 @@ def check_timeline(
     tolerance_frames: int = 1,
     duration: float | None = None,
     video: Path | None = None,
+    master: Path | None = None,
+    index_html: str | None = None,
 ) -> TimelineReport:
     tolerance = tolerance_frames / fps
     report = TimelineReport(ok=False, fps=fps, tolerance=tolerance)
-    master = root / "assets" / "voice.wav"
+    master = master or root / "assets" / "voice.wav"
     if not master.exists():
         report.errors.append(f"missing {master}")
         return report
@@ -95,8 +97,11 @@ def check_timeline(
         )
 
     index = root / "index.html"
-    if index.exists():
-        match = DATA_DURATION.search(index.read_text())
+    html = index_html if index_html is not None else (
+        index.read_text() if index.exists() else None
+    )
+    if html is not None:
+        match = DATA_DURATION.search(html)
         if not match:
             report.errors.append("index.html has no data-duration")
         else:

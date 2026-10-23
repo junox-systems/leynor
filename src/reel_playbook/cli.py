@@ -2,21 +2,21 @@
 
 import argparse
 import sys
+from pathlib import Path
 
 from .book import ReelPlaybook, StateError
 from .build import (
     BuildError,
     build,
-    find_spec,
-    import_legacy,
+    import_project,
     run_check,
     run_compose,
     run_look,
     run_render,
     run_voice,
     run_waveforms,
+    stored_spec,
 )
-from .content import load_spec
 from .imagetools import catalogue
 from .models import VERSION
 from .steps import STEPS
@@ -26,7 +26,7 @@ MARKS = {"done": "[x]", "current": "[>]", "failed": "[!]", "locked": "[ ]"}
 
 
 def _ws(args) -> Workspace:
-    return Workspace(args.home)
+    return Workspace(args.home, db=args.db)
 
 
 def _book(args) -> ReelPlaybook:
@@ -35,8 +35,8 @@ def _book(args) -> ReelPlaybook:
     )
 
 
-def _spec(args, slug: str | None = None):
-    return load_spec(find_spec(_ws(args), slug or args.slug, getattr(args, "spec", None)))
+def _spec(args):
+    return stored_spec(_book(args))
 
 
 def cmd_init(args) -> int:
@@ -108,10 +108,9 @@ def cmd_set(args) -> int:
 
 
 def cmd_build(args) -> int:
-    workspace = _ws(args)
     book = build(
-        workspace,
-        find_spec(workspace, args.spec),
+        _ws(args),
+        args.spec,
         whisper_size=args.whisper,
         threads=args.threads,
         render=not args.no_render,
@@ -189,9 +188,15 @@ def cmd_list(args) -> int:
     return 0
 
 
+def cmd_export(args) -> int:
+    path = _book(args).export(Path(args.dir))
+    print(path)
+    return 0
+
+
 def cmd_import(args) -> int:
-    book = import_legacy(_ws(args), args.path)
-    print(f"imported {book.slug}  state {book.state}  {len(book.assets())} assets")
+    book = import_project(_ws(args), args.path)
+    print(f"imported {book.slug}  state {book.state}  {len(book.artifacts())} artifacts")
     return 0
 
 
@@ -242,6 +247,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--home", default=None, help="workspace root (default: $REEL_HOME or ~/Videos/reels)"
     )
+    parser.add_argument(
+        "--db", default=None, help="database url (default: $REEL_DB or ParadeDB on :5432)"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     def add(name, func, help_text, *, slug=True, llm=False):
@@ -283,7 +291,7 @@ def build_parser() -> argparse.ArgumentParser:
     setting.add_argument("value")
 
     build_cmd = sub.add_parser("build", help="run all six steps from a content spec")
-    build_cmd.add_argument("spec", help="spec path or slug (looked up in <home>/specs)")
+    build_cmd.add_argument("spec", help="spec path or project slug")
     build_cmd.add_argument("--whisper", default="base.en")
     build_cmd.add_argument("--threads", type=int, default=4)
     build_cmd.add_argument("--quality", default="delivery")
@@ -309,7 +317,10 @@ def build_parser() -> argparse.ArgumentParser:
     timeline = add("timeline", cmd_timeline, "master, cues, composition, render agree")
     timeline.add_argument("--video", default=None)
 
-    importing = sub.add_parser("import", help="import a 0.0.1 project directory")
+    exporting = add("export", cmd_export, "write a portable copy of a project")
+    exporting.add_argument("dir")
+
+    importing = sub.add_parser("import", help="ingest a project directory")
     importing.add_argument("path")
     importing.set_defaults(func=cmd_import)
 

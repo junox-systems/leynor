@@ -1,8 +1,11 @@
-"""One workspace, one database, content-addressed blobs.
+"""One workspace, one database. Everything but the render lives in the DB.
 
-Portable by design: TEXT ids, ISO timestamps, no SQLite-only syntax beyond
-``INSERT ... ON CONFLICT`` (Postgres 9.5+ has the same). Swapping to Postgres for
-the Django app means a connection and a paramstyle, not a schema rewrite.
+Artifacts (spec, storyboard, frame, HTML, captions, visuals, master wav) are
+rows; binary payloads live once in ``blobs`` and are referenced by sha256. The
+only file the pipeline keeps is ``out.mp4``.
+
+The ORM is Django's: same models the future web app will import. ``REEL_DB``
+selects the database (default ParadeDB/Postgres 18 on 127.0.0.1:5432).
 """
 
 from __future__ import annotations
@@ -12,7 +15,6 @@ import json
 import os
 import re
 import shutil
-import sqlite3
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -20,90 +22,9 @@ from pathlib import Path
 
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,63}$")
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS projects (
-  slug TEXT PRIMARY KEY,
-  state TEXT NOT NULL,
-  version TEXT NOT NULL,
-  root TEXT NOT NULL,
-  fps INTEGER NOT NULL,
-  width INTEGER NOT NULL,
-  height INTEGER NOT NULL,
-  duration_s DOUBLE PRECISION,
-  max_attempts INTEGER NOT NULL DEFAULT 3,
-  tokens_json TEXT NOT NULL,
-  locked_json TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS assets (
-  sha256 TEXT PRIMARY KEY,
-  ext TEXT NOT NULL,
-  kind TEXT NOT NULL,
-  media_type TEXT,
-  bytes BIGINT NOT NULL,
-  duration_s DOUBLE PRECISION,
-  width INTEGER,
-  height INTEGER,
-  created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS project_assets (
-  slug TEXT NOT NULL,
-  sha256 TEXT NOT NULL,
-  role TEXT NOT NULL,
-  meta_json TEXT,
-  PRIMARY KEY (slug, sha256, role)
-);
-CREATE TABLE IF NOT EXISTS cache_keys (
-  key TEXT PRIMARY KEY,
-  sha256 TEXT NOT NULL,
-  tool TEXT NOT NULL,
-  tool_version TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS gates (
-  slug TEXT NOT NULL,
-  step TEXT NOT NULL,
-  result TEXT,
-  attempts INTEGER NOT NULL DEFAULT 0,
-  evidence TEXT,
-  at TEXT,
-  PRIMARY KEY (slug, step)
-);
-CREATE TABLE IF NOT EXISTS logs (
-  id TEXT PRIMARY KEY,
-  slug TEXT NOT NULL,
-  at TEXT NOT NULL,
-  action TEXT NOT NULL,
-  from_state TEXT NOT NULL,
-  to_state TEXT NOT NULL,
-  note TEXT
-);
-CREATE INDEX IF NOT EXISTS logs_slug_at ON logs (slug, at);
-CREATE TABLE IF NOT EXISTS cues (
-  slug TEXT NOT NULL,
-  idx INTEGER NOT NULL,
-  scene INTEGER NOT NULL,
-  start_s DOUBLE PRECISION NOT NULL,
-  end_s DOUBLE PRECISION NOT NULL,
-  text TEXT NOT NULL,
-  PRIMARY KEY (slug, idx)
-);
-CREATE TABLE IF NOT EXISTS renders (
-  id TEXT PRIMARY KEY,
-  slug TEXT NOT NULL,
-  sha256 TEXT NOT NULL,
-  duration_s DOUBLE PRECISION,
-  fps DOUBLE PRECISION,
-  loudness DOUBLE PRECISION,
-  peak DOUBLE PRECISION,
-  verified_at TEXT
-);
-"""
-
 
 def now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
 
 
 def new_id() -> str:
@@ -111,24 +32,24 @@ def new_id() -> str:
 
 
 class Workspace:
-    """Root of all data. Nothing outside it is written."""
+    """Root of all data on disk. Only ``out.mp4`` and scratch live here."""
 
-    def __init__(self, root: Path | str | None = None):
+    def __init__(self, root: Path | str | None = None, db: str | None = None):
         self.root = Path(
             root or os.environ.get("REEL_HOME") or Path.home() / "Videos" / "reels"
         ).resolve()
-        self.db_path = self.root / "reel.sqlite"
-        self.blobs = self.root / "blobs"
+        self.db_url = db or os.environ.get("REEL_DB") or "postgresql://postgres:postgres@127.0.0.1:5432/reel"
         self.projects = self.root / "projects"
-        self.specs = self.root / "specs"
         self.tmp = self.root / "tmp"
-        for path in (self.root, self.blobs, self.projects, self.specs, self.tmp):
+        for path in (self.root, self.projects, self.tmp):
             path.mkdir(parents=True, exist_ok=True)
 
     def project_dir(self, slug: str) -> Path:
         if not SLUG.match(slug):
             raise ValueError(f"bad slug {slug!r}; lowercase letters, digits, dashes")
-        return self.projects / slug
+        path = self.projects / slug
+        path.mkdir(parents=True, exist_ok=True)
+        return path
 
     @contextmanager
     def scratch(self):
@@ -149,42 +70,17 @@ class Workspace:
         return Store(self)
 
     def catalog(self) -> "Catalog":
-        return Catalog(self.db_path)
+        return Catalog(self.db_url)
 
 
 class Store:
+    """Content addresses. The bytes live in the database, not on disk."""
+
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
 
-    def _blob(self, sha: str, ext: str) -> Path:
-        return self.workspace.blobs / sha[:2] / sha[2:4] / f"{sha}.{ext}"
-
-    def path(self, ref: str) -> Path:
-        sha, _, ext = ref.partition(".")
-        return self._blob(sha, ext)
-
-    def put_bytes(self, data: bytes, ext: str) -> tuple[str, str]:
-        sha = hashlib.sha256(data).hexdigest()
-        ref = f"{sha}.{ext}"
-        target = self._blob(sha, ext)
-        if target.exists():
-            return sha, ref
-        target.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.workspace.tmp / f"{uuid.uuid4().hex}.{ext}"
-        tmp.write_bytes(data)
-        os.replace(tmp, target)
-        return sha, ref
-
-    def put_file(self, path: Path, ext: str | None = None) -> tuple[str, str]:
-        return self.put_bytes(path.read_bytes(), ext or path.suffix.lstrip(".") or "bin")
-
-    def materialize(self, ref: str, dest: Path) -> Path:
-        source = self.path(ref)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        tmp = dest.with_name(dest.name + ".part")
-        shutil.copyfile(source, tmp)
-        os.replace(tmp, dest)
-        return dest
+    def sha(self, data: bytes) -> str:
+        return hashlib.sha256(data).hexdigest()
 
     def key(self, *parts: object) -> str:
         raw = json.dumps(parts, sort_keys=True, default=str).encode()
@@ -192,159 +88,198 @@ class Store:
 
 
 class Catalog:
-    def __init__(self, path: Path):
-        self.conn = sqlite3.connect(path)
-        self.conn.row_factory = sqlite3.Row
-        self.conn.execute("PRAGMA journal_mode=WAL")
-        self.conn.executescript(SCHEMA)
-        self.conn.commit()
+    """Repository over the Django models. One database per process."""
 
-    def close(self) -> None:
-        self.conn.close()
+    def __init__(self, url: str):
+        from .db import migrate, setup
+
+        setup(url)
+        migrate()
+        from .db import models
+
+        self.m = models
 
     # projects ---------------------------------------------------------
 
     def put_project(self, record: dict) -> None:
-        columns = (
-            "slug, state, version, root, fps, width, height, duration_s, "
-            "max_attempts, tokens_json, locked_json, created_at, updated_at"
+        self.m.Project.objects.update_or_create(
+            slug=record["slug"],
+            defaults={key: record[key] for key in record if key != "slug"},
         )
-        values = tuple(record[k] for k in (
-            "slug", "state", "version", "root", "fps", "width", "height",
-            "duration_s", "max_attempts", "tokens_json", "locked_json",
-            "created_at", "updated_at",
-        ))
-        self.conn.execute(
-            f"INSERT INTO projects ({columns}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) "
-            "ON CONFLICT(slug) DO UPDATE SET state=excluded.state, "
-            "version=excluded.version, root=excluded.root, fps=excluded.fps, "
-            "width=excluded.width, height=excluded.height, "
-            "duration_s=excluded.duration_s, max_attempts=excluded.max_attempts, "
-            "tokens_json=excluded.tokens_json, "
-            "locked_json=excluded.locked_json, updated_at=excluded.updated_at",
-            values,
-        )
-        self.conn.commit()
 
     def get_project(self, slug: str) -> dict | None:
-        row = self.conn.execute("SELECT * FROM projects WHERE slug=?", (slug,)).fetchone()
-        return dict(row) if row else None
+        return self.m.Project.objects.filter(slug=slug).values().first()
 
     def list_projects(self) -> list[dict]:
-        rows = self.conn.execute("SELECT * FROM projects ORDER BY slug").fetchall()
-        return [dict(r) for r in rows]
+        return list(self.m.Project.objects.order_by("slug").values())
 
     # gates and logs ---------------------------------------------------
 
     def put_gate(self, slug: str, gate: dict) -> None:
-        self.conn.execute(
-            "INSERT INTO gates (slug, step, result, attempts, evidence, at) "
-            "VALUES (?,?,?,?,?,?) ON CONFLICT(slug, step) DO UPDATE SET "
-            "result=excluded.result, attempts=excluded.attempts, "
-            "evidence=excluded.evidence, at=excluded.at",
-            (slug, gate["step"], gate.get("result"), gate.get("attempts", 0),
-             gate.get("evidence"), gate.get("at")),
+        self.m.Gate.objects.update_or_create(
+            slug=slug,
+            step=gate["step"],
+            defaults={
+                "result": gate.get("result"),
+                "attempts": gate.get("attempts", 0),
+                "evidence": gate.get("evidence"),
+                "at": gate.get("at"),
+            },
         )
-        self.conn.commit()
 
     def get_gates(self, slug: str) -> dict[str, dict]:
-        rows = self.conn.execute("SELECT * FROM gates WHERE slug=?", (slug,)).fetchall()
-        return {r["step"]: dict(r) for r in rows}
+        return {
+            row["step"]: row
+            for row in self.m.Gate.objects.filter(slug=slug).values()
+        }
 
     def delete_gates_from(self, slug: str, steps: list[str]) -> None:
-        for step in steps:
-            self.conn.execute("DELETE FROM gates WHERE slug=? AND step=?", (slug, step))
-        self.conn.commit()
+        self.m.Gate.objects.filter(slug=slug, step__in=steps).delete()
 
     def add_log(self, slug: str, entry: dict) -> None:
-        self.conn.execute(
-            "INSERT INTO logs (id, slug, at, action, from_state, to_state, note) "
-            "VALUES (?,?,?,?,?,?,?)",
-            (new_id(), slug, entry["at"], entry["action"], entry["from_state"],
-             entry["to_state"], entry.get("note")),
+        self.m.Log.objects.create(
+            id=new_id(),
+            slug=slug,
+            at=entry["at"],
+            action=entry["action"],
+            from_state=entry["from_state"],
+            to_state=entry["to_state"],
+            note=entry.get("note"),
         )
-        self.conn.commit()
 
     def get_logs(self, slug: str, limit: int = 20) -> list[dict]:
-        rows = self.conn.execute(
-            "SELECT * FROM logs WHERE slug=? ORDER BY at DESC LIMIT ?", (slug, limit)
-        ).fetchall()
-        return [dict(r) for r in reversed(rows)]
-
-    # assets -----------------------------------------------------------
-
-    def put_asset(self, record: dict) -> None:
-        self.conn.execute(
-            "INSERT INTO assets (sha256, ext, kind, media_type, bytes, duration_s, "
-            "width, height, created_at) VALUES (?,?,?,?,?,?,?,?,?) "
-            "ON CONFLICT(sha256) DO NOTHING",
-            (record["sha256"], record["ext"], record["kind"],
-             record.get("media_type"), record["bytes"], record.get("duration_s"),
-             record.get("width"), record.get("height"), record["created_at"]),
+        rows = list(
+            self.m.Log.objects.filter(slug=slug).order_by("-at").values()[:limit]
         )
-        self.conn.commit()
+        return list(reversed(rows))
 
-    def link_asset(self, slug: str, sha: str, role: str, meta: dict | None = None) -> None:
-        self.conn.execute(
-            "INSERT INTO project_assets (slug, sha256, role, meta_json) VALUES (?,?,?,?) "
-            "ON CONFLICT(slug, sha256, role) DO UPDATE SET meta_json=excluded.meta_json",
-            (slug, sha, role, json.dumps(meta or {})),
+    # blobs ------------------------------------------------------------
+
+    def put_blob(
+        self, data: bytes, ext: str, kind: str, media_type: str | None = None
+    ) -> str:
+        sha = hashlib.sha256(data).hexdigest()
+        if not self.m.Blob.objects.filter(sha256=sha).exists():
+            self.m.Blob.objects.create(
+                sha256=sha,
+                ext=ext,
+                kind=kind,
+                media_type=media_type,
+                bytes=len(data),
+                data=data,
+                created_at=now(),
+            )
+        return sha
+
+    def get_blob(self, sha: str) -> dict | None:
+        row = self.m.Blob.objects.filter(sha256=sha).values().first()
+        if row and isinstance(row["data"], memoryview):
+            row["data"] = bytes(row["data"])
+        return row
+
+    # artifacts --------------------------------------------------------
+
+    def put_artifact(
+        self,
+        slug: str,
+        path: str,
+        *,
+        text: str | None = None,
+        sha256: str | None = None,
+        kind: str = "file",
+        meta: dict | None = None,
+    ) -> None:
+        if (text is None) == (sha256 is None):
+            raise ValueError("an artifact is either text or a blob reference")
+        self.m.Artifact.objects.update_or_create(
+            slug=slug,
+            path=path,
+            defaults={
+                "kind": kind,
+                "text": text,
+                "sha256": sha256,
+                "meta_json": json.dumps(meta or {}),
+            },
         )
-        self.conn.commit()
 
-    def get_assets(self, slug: str) -> list[dict]:
-        rows = self.conn.execute(
-            "SELECT a.*, pa.role, pa.meta_json FROM project_assets pa "
-            "JOIN assets a ON a.sha256 = pa.sha256 WHERE pa.slug=? ORDER BY pa.role",
-            (slug,),
-        ).fetchall()
-        return [dict(r) for r in rows]
+    def get_artifact(self, slug: str, path: str) -> dict | None:
+        return (
+            self.m.Artifact.objects.filter(slug=slug, path=path).values().first()
+        )
+
+    def list_artifacts(self, slug: str) -> list[dict]:
+        return list(
+            self.m.Artifact.objects.filter(slug=slug).order_by("path").values()
+        )
+
+    def delete_artifact(self, slug: str, path: str) -> None:
+        self.m.Artifact.objects.filter(slug=slug, path=path).delete()
+
+    def artifact_bytes(self, slug: str, path: str) -> bytes | None:
+        row = self.get_artifact(slug, path)
+        if row is None:
+            return None
+        if row["text"] is not None:
+            return row["text"].encode()
+        blob = self.get_blob(row["sha256"])
+        return blob["data"] if blob else None
+
+    # cache ------------------------------------------------------------
 
     def cache_get(self, key: str) -> str | None:
-        row = self.conn.execute(
-            "SELECT sha256 FROM cache_keys WHERE key=?", (key,)
-        ).fetchone()
+        row = self.m.CacheKey.objects.filter(key=key).values("sha256").first()
         return row["sha256"] if row else None
 
     def cache_put(self, key: str, sha: str, tool: str, version: str) -> None:
-        self.conn.execute(
-            "INSERT INTO cache_keys (key, sha256, tool, tool_version, created_at) "
-            "VALUES (?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET sha256=excluded.sha256",
-            (key, sha, tool, version, now()),
+        self.m.CacheKey.objects.update_or_create(
+            key=key,
+            defaults={
+                "sha256": sha,
+                "tool": tool,
+                "tool_version": version,
+                "created_at": now(),
+            },
         )
-        self.conn.commit()
 
     # cues and renders -------------------------------------------------
 
     def put_cues(self, slug: str, cues: list[dict]) -> None:
-        self.conn.execute("DELETE FROM cues WHERE slug=?", (slug,))
-        self.conn.executemany(
-            "INSERT INTO cues (slug, idx, scene, start_s, end_s, text) "
-            "VALUES (?,?,?,?,?,?)",
-            [(slug, i, c["scene"], c["start"], c["end"], c["text"])
-             for i, c in enumerate(cues)],
+        self.m.Cue.objects.filter(slug=slug).delete()
+        self.m.Cue.objects.bulk_create(
+            [
+                self.m.Cue(
+                    slug=slug,
+                    idx=index,
+                    scene=cue["scene"],
+                    start_s=cue["start"],
+                    end_s=cue["end"],
+                    text=cue["text"],
+                )
+                for index, cue in enumerate(cues)
+            ]
         )
-        self.conn.commit()
 
     def get_cues(self, slug: str) -> list[dict]:
-        rows = self.conn.execute(
-            "SELECT * FROM cues WHERE slug=? ORDER BY idx", (slug,)
-        ).fetchall()
-        return [dict(r) for r in rows]
+        return list(
+            self.m.Cue.objects.filter(slug=slug).order_by("idx").values()
+        )
 
     def put_render(self, slug: str, render: dict) -> None:
-        self.conn.execute(
-            "INSERT INTO renders (id, slug, sha256, duration_s, fps, loudness, peak, "
-            "verified_at) VALUES (?,?,?,?,?,?,?,?)",
-            (new_id(), slug, render["sha256"], render.get("duration_s"),
-             render.get("fps"), render.get("loudness"), render.get("peak"),
-             render.get("verified_at")),
+        self.m.Render.objects.create(
+            id=new_id(),
+            slug=slug,
+            sha256=render["sha256"],
+            duration_s=render.get("duration_s"),
+            fps=render.get("fps"),
+            loudness=render.get("loudness"),
+            peak=render.get("peak"),
+            verified_at=render.get("verified_at"),
         )
-        self.conn.commit()
 
     def get_render(self, slug: str) -> dict | None:
-        row = self.conn.execute(
-            "SELECT * FROM renders WHERE slug=? ORDER BY verified_at DESC LIMIT 1",
-            (slug,),
-        ).fetchone()
-        return dict(row) if row else None
+        return (
+            self.m.Render.objects.filter(slug=slug)
+            .order_by("-verified_at")
+            .values()
+            .first()
+        )

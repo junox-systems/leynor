@@ -1,14 +1,15 @@
-"""Storage: one workspace, no escape, dedupe by content."""
+"""Storage: one workspace, no escape, blobs deduped in Postgres."""
 
 import pytest
 
-from reel_playbook.storage import SLUG, Catalog, Store, Workspace
+from reel_playbook.storage import SLUG, Workspace
 
 
-def test_workspace_layout(tmp_path):
+def test_workspace_layout_and_db_url(tmp_path):
     ws = Workspace(tmp_path / "ws")
-    assert ws.db_path.name == "reel.sqlite"
-    assert ws.blobs.is_dir() and ws.projects.is_dir() and ws.tmp.is_dir()
+    assert ws.projects.is_dir() and ws.tmp.is_dir()
+    assert ws.db_url.startswith("postgresql://")
+    assert ws.db_url.endswith("/reel_test")
 
 
 def test_assert_inside_rejects_outside(tmp_path):
@@ -28,41 +29,44 @@ def test_slug_validation(tmp_path):
 
 def test_blob_is_content_addressed(tmp_path):
     ws = Workspace(tmp_path / "ws")
-    store = ws.store()
-    first, ref = store.put_bytes(b"same bytes", "txt")
-    second, again = store.put_bytes(b"same bytes", "txt")
+    catalog = ws.catalog()
+    first = catalog.put_blob(b"same bytes", "txt", "file")
+    second = catalog.put_blob(b"same bytes", "txt", "file")
     assert first == second
-    assert ref == again
-    assert store.path(ref).read_bytes() == b"same bytes"
+    assert catalog.get_blob(first)["data"] == b"same bytes"
 
 
 def test_two_projects_share_one_blob(tmp_path):
     ws = Workspace(tmp_path / "ws")
-    store = ws.store()
     catalog = ws.catalog()
-    sha, _ = store.put_bytes(b"shared", "svg")
+    sha = catalog.put_blob(b"shared", "svg", "visual")
     for slug in ("aa", "bb"):
-        catalog.put_asset(
-            {
-                "sha256": sha,
-                "ext": "svg",
-                "kind": "visual",
-                "media_type": "image/svg+xml",
-                "bytes": 6,
-                "created_at": "2026-01-01T00:00:00+00:00",
-            }
-        )
-        catalog.link_asset(slug, sha, "visual:s1", {})
-    blobs = [path for path in (ws.blobs).rglob("*") if path.is_file()]
-    assert len(blobs) == 1
-    assert len(catalog.get_assets("aa")) == 1
+        catalog.put_artifact(slug, "assets/visuals/s1.svg", sha256=sha, kind="visual")
+    from reel_playbook.db import models
+
+    assert models.Blob.objects.count() == 1
+    assert catalog.get_artifact("aa", "assets/visuals/s1.svg")["sha256"] == sha
+
+
+def test_artifact_text_and_bytes(tmp_path):
+    ws = Workspace(tmp_path / "ws")
+    catalog = ws.catalog()
+    catalog.put_artifact("aa", "STORYBOARD.md", text="# STORYBOARD\n")
+    catalog.put_artifact("aa", "captions.json", text="{}")
+    assert catalog.artifact_bytes("aa", "STORYBOARD.md") == b"# STORYBOARD\n"
+    assert {row["path"] for row in catalog.list_artifacts("aa")} == {
+        "STORYBOARD.md",
+        "captions.json",
+    }
+    catalog.delete_artifact("aa", "captions.json")
+    assert catalog.get_artifact("aa", "captions.json") is None
 
 
 def test_cache_key_roundtrip(tmp_path):
     ws = Workspace(tmp_path / "ws")
     store, catalog = ws.store(), ws.catalog()
     key = store.key("procedural", "1.0.0", 7, 2)
-    sha, _ = store.put_bytes(b"cached", "png")
+    sha = catalog.put_blob(b"cached", "png", "visual")
     assert catalog.cache_get(key) is None
     catalog.cache_put(key, sha, "procedural", "1.0.0")
     assert catalog.cache_get(key) == sha

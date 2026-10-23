@@ -2,7 +2,7 @@
 
 from .align import AlignResult, FasterWhisper, cues_from_words, map_words, write_cues
 from .book import ReelPlaybook, StateError
-from .build import build, find_spec, import_legacy
+from .build import build, import_project
 from .compose import compose, scene_windows
 from .content import ReelSpec, SceneSpec, load_spec
 from .imagetools import Procedural, Visual, Waveform, catalogue, get
@@ -57,9 +57,8 @@ __all__ = [
     "check_timeline",
     "compose",
     "cues_from_words",
-    "find_spec",
     "get",
-    "import_legacy",
+    "import_project",
     "load_spec",
     "map_words",
     "mix",

@@ -45,7 +45,7 @@ uv run reel set 04-five-minutes voice fantine
 
 uv run reel build 04-five-minutes                   # all six steps + render
 uv run reel build 04-five-minutes --no-render
-uv run reel look 04-five-minutes --spec ~/Videos/reels/specs/04-five-minutes.json
+uv run reel look 04-five-minutes
 uv run reel voice 04-five-minutes --whisper base.en
 uv run reel compose 04-five-minutes
 uv run reel check 04-five-minutes
@@ -54,6 +54,7 @@ uv run reel timeline 04-five-minutes --video out.mp4
 
 uv run reel tools                     # ImageTools
 uv run reel import ~/Videos/reels/01-2009-1969
+uv run reel export 04-five-minutes /tmp/reel-export
 uv run reel draft 04-five-minutes hook --brief "idea: ..."
 uv run reel audit assets/voice.wav     # uv run --extra audit ...
 ```
@@ -76,22 +77,25 @@ to `voice` or earlier clears the cue map.
 
 ## Storage
 
-One workspace, one `reel.sqlite`, content-addressed blobs.
+One workspace on disk, one Postgres database. Everything except `out.mp4` is a
+row.
 
 ```
 ~/Videos/reels/
-  reel.sqlite          projects, gates, logs, assets, cues, renders
-  specs/<slug>.json    content specs, outside the repo
-  blobs/ab/cd/<sha>.wav
-  projects/<slug>/     manifest.json, assets/, compositions/, index.html, out.mp4
-  tmp/                 scratch, deleted after each run
+  projects/<slug>/out.mp4    the only kept file
+  tmp/                       scratch, deleted after each run
 ```
 
-Nothing is written outside the workspace (`Workspace.assert_inside`). The
-database is authoritative; `projects/<slug>/manifest.json` is the portable
-export. The schema is Postgres-safe: TEXT ids, ISO timestamps, `INSERT ... ON
-CONFLICT`, no ORM. Moving to Postgres 18 for a Django app means a connection
-and a paramstyle, not a rewrite of the model.
+Django ORM models in `src/reel_playbook/db/` (`Project`, `Blob`, `Artifact`,
+`Gate`, `Log`, `Cue`, `Render`, `CacheKey`). Text artifacts (spec, storyboard,
+frame, compositions, captions) are rows; binary ones (visuals, master wav) are
+content-addressed blobs referenced by sha256. A render is materialized to a
+scratch directory, produced there, and only the mp4 is copied back.
+
+Database URL: `$REEL_DB` or `--db`, default
+`postgresql://postgres:postgres@127.0.0.1:5432/reel` (ParadeDB / Postgres 18).
+The same models drop into the future Django app unchanged; `migrate` runs on
+first use, and `reel export <slug> <dir>` writes a portable copy back to disk.
 
 ## Layout
 
@@ -100,7 +104,8 @@ src/reel_playbook/
   steps.py     step catalogue: human name, description, in/out, gate
   models.py    Tokens, GateRecord, Cue, flow tracker, reports
   book.py      ReelPlaybook: FSM, gates, logs, flow, timeline, drafting
-  storage.py   Workspace, content-addressed Store, Catalog (SQLite now, Postgres later)
+  storage.py   Workspace, content-addressed Store, Catalog over the ORM
+  db/          Django ORM models, settings and migrations (postgres only)
   content.py   ReelSpec / SceneSpec, loader
   build.py     the pipeline: spec -> gates -> look -> voice -> compose -> render
   imagetools.py ImageTools: procedural SVG (A), waveform (A+)

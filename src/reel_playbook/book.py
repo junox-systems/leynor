@@ -7,13 +7,15 @@
 
 Six steps, six gates, no forward move without a recorded gate. The artifact
 proves nothing on its own; the gate record is what counts. The database row is
-the project; ``manifest.json`` is the portable export.
+the project; ``manifest()`` is the portable export of its rows.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import shutil
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any
 
@@ -101,8 +103,7 @@ class ReelPlaybook:
             raise StateError(f"{slug} already exists; open it or pick another slug")
         if root.exists() and any(root.iterdir()):
             raise StateError(f"{root} is not empty; pick another slug")
-        for name in ("assets", "assets/visuals", "compositions", "boards"):
-            (root / name).mkdir(parents=True, exist_ok=True)
+        root.mkdir(parents=True, exist_ok=True)
         width, height = size
         stamp = utcnow().isoformat(timespec="seconds")
         record = {
@@ -157,8 +158,8 @@ class ReelPlaybook:
     # -- lookups --------------------------------------------------------
 
     @property
-    def path(self) -> Path:
-        return self.root / "manifest.json"
+    def render_path(self) -> Path:
+        return self.root / "out.mp4"
 
     @property
     def state(self) -> str:
@@ -347,18 +348,89 @@ class ReelPlaybook:
     def cue_dicts(self) -> list[dict]:
         return [cue.model_dump() for cue in self.cues()]
 
-    def assets(self) -> list[dict]:
-        return self._catalog.get_assets(self.slug)
+    def artifacts(self) -> list[dict]:
+        return self._catalog.list_artifacts(self.slug)
+
+    def put_text(self, path: str, text: str, kind: str = "text",
+                 meta: dict | None = None) -> None:
+        self._catalog.put_artifact(self.slug, path, text=text, kind=kind, meta=meta)
+
+    def put_bytes(self, path: str, data: bytes, ext: str, kind: str,
+                  media_type: str | None = None, meta: dict | None = None) -> str:
+        sha = self._catalog.put_blob(data, ext, kind, media_type)
+        self._catalog.put_artifact(self.slug, path, sha256=sha, kind=kind, meta=meta)
+        return sha
+
+    def text(self, path: str) -> str | None:
+        row = self._catalog.get_artifact(self.slug, path)
+        return row["text"] if row else None
+
+    def read(self, path: str) -> bytes | None:
+        return self._catalog.artifact_bytes(self.slug, path)
+
+    def materialize(self, dest: Path) -> Path:
+        """Write the artifact tree to disk for tools that need files."""
+        for row in self.artifacts():
+            target = dest / row["path"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            data = (
+                row["text"].encode()
+                if row["text"] is not None
+                else self._catalog.get_blob(row["sha256"])["data"]
+            )
+            target.write_bytes(data)
+        return dest
+
+    def manifest(self) -> dict:
+        return {
+            "slug": self.slug,
+            "version": self._record["version"],
+            "state": self.state,
+            "tokens": self.tokens.public(),
+            "locked_at": self.locked_at,
+            "gates": {
+                step: gate.model_dump(mode="json")
+                for step, gate in sorted(self._gates.items())
+            },
+            "cues": self.cue_dicts(),
+            "artifacts": [
+                {
+                    "path": row["path"],
+                    "kind": row["kind"],
+                    "sha256": row["sha256"],
+                    "meta": json.loads(row["meta_json"] or "{}"),
+                }
+                for row in self.artifacts()
+            ],
+        }
+
+    def export(self, dest: Path) -> Path:
+        dest.mkdir(parents=True, exist_ok=True)
+        self.materialize(dest)
+        if self.render_path.exists():
+            shutil.copy2(self.render_path, dest / "out.mp4")
+        (dest / "manifest.json").write_text(
+            json.dumps(self.manifest(), indent=2) + "\n"
+        )
+        return dest
 
     def timeline(self, video: Path | str | None = None) -> TimelineReport:
-        report = check_timeline(
-            self.root,
-            self.cue_dicts(),
-            fps=float(self.tokens.fps),
-            tolerance_frames=int(self.tokens.tolerance_frames),
-            duration=self.tokens.duration,
-            video=Path(video) if video is not None else None,
-        )
+        with self.workspace.scratch() as scratch:
+            master = None
+            data = self.read("assets/voice.wav")
+            if data is not None:
+                master = scratch / "voice.wav"
+                master.write_bytes(data)
+            report = check_timeline(
+                self.root,
+                self.cue_dicts(),
+                fps=float(self.tokens.fps),
+                tolerance_frames=int(self.tokens.tolerance_frames),
+                duration=self.tokens.duration,
+                video=Path(video) if video is not None else None,
+                master=master,
+                index_html=self.text("index.html"),
+            )
         self._log(
             "timeline",
             self.state,
@@ -409,35 +481,6 @@ class ReelPlaybook:
                     "at": gate.at.isoformat() if gate.at else None,
                 },
             )
-        self._write_manifest()
-
-    def _write_manifest(self) -> None:
-        self.root.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "slug": self.slug,
-            "version": self._record["version"],
-            "state": self.state,
-            "updated_at": self._record["updated_at"],
-            "tokens": self.tokens.public(),
-            "locked_at": self.locked_at,
-            "gates": {
-                step: gate.model_dump(mode="json")
-                for step, gate in sorted(self._gates.items())
-            },
-            "cues": self.cue_dicts(),
-            "assets": [
-                {
-                    "ref": f"{row['sha256']}.{row['ext']}",
-                    "role": row["role"],
-                    "kind": row["kind"],
-                    "bytes": row["bytes"],
-                    "meta": json.loads(row["meta_json"] or "{}"),
-                }
-                for row in self.assets()
-            ],
-            "source": str(self.workspace.db_path),
-        }
-        self.path.write_text(json.dumps(payload, indent=2) + "\n")
 
     # -- internals ------------------------------------------------------
 
@@ -454,15 +497,18 @@ class ReelPlaybook:
         return spec.index if spec else len(STEPS) + 1
 
     def _has(self, pattern: str) -> bool:
+        paths = [row["path"] for row in self.artifacts()]
+        if pattern == "out.mp4":
+            return self.render_path.exists()
         if any(ch in pattern for ch in "*?[]"):
-            return any(self.root.glob(pattern))
-        return (self.root / pattern).exists()
+            return any(fnmatch(name, pattern) for name in paths)
+        return pattern in paths
 
     def _log(self, action: str, from_state: str, to_state: str, note: str | None) -> None:
         self._catalog.add_log(
             self.slug,
             {
-                "at": utcnow().isoformat(timespec="seconds"),
+                "at": utcnow().isoformat(timespec="microseconds"),
                 "action": action,
                 "from_state": from_state,
                 "to_state": to_state,
