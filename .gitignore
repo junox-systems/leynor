@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+build/
+dist/
+sdist/
+.eggs/
+pip-wheel-metadata/
+
+# uv / virtualenv
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# tests and coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+junit.xml
+
+# editors and OS
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# logs and temporary output
+*.log
+*.tmp
+*.bak
+*.orig
+*.rej
+
+# local agent state
+.crush/
+
+# HyperFrames workdirs and render caches
+.hyperframes/
+node_modules/
+out.mp4

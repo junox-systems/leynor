@@ -1,0 +1,1 @@
+/home/hanz/obsidian_vaults/primary/playbooks/reel-playbook/playbook.md
