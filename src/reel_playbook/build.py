@@ -16,6 +16,8 @@ from .align import AlignError, FasterWhisper, write_cues
 from .book import ReelPlaybook, StateError
 from .compose import compose
 from .content import ReelSpec, load_spec
+from .creative import validate_beats, validate_hooks, validate_idea
+from .design import default_frame
 from .imagetools import Procedural, Waveform
 from .steps import STEPS
 from .storage import Workspace, now
@@ -54,23 +56,44 @@ def build(
         if book.state != "IDEA":
             book.rewind("idea", "rebuild from stored spec")
 
-    write_board(book, spec)
+    idea = book.idea()
+    problems = validate_idea(idea)
+    if problems:
+        raise BuildError("idea gate: " + "; ".join(problems))
     book.pass_gate(
         "idea",
-        f"spec stored in db: {spec.title!r}, {len(spec.scenes)} scenes, "
-        f"{len(spec.sources)} sources",
+        f"score {float(idea['score']):g}/10, goal {idea['goal']}, "
+        f"{len(idea['citations'])} citations, {len(idea['alternatives'])} rejected "
+        f"concepts, objection answered",
     )
+
+    hooks = book.hooks()
+    problems = validate_hooks(hooks)
+    if problems:
+        raise BuildError("hook gate: " + "; ".join(problems))
+    chosen = next(row for row in hooks if row["chosen"])
+    archetypes = {row["archetype"] for row in hooks}
     book.pass_gate(
         "hook",
-        f"scene 1 overlay {spec.scenes[0].overlay!r} "
-        f"({len(spec.scenes[0].overlay)} chars) names the payoff; "
-        f"label {spec.scenes[0].label!r}",
+        f"{len(hooks)} hooks across {len(archetypes)} archetypes, winner "
+        f"{chosen['overlay']!r} ({len(chosen['overlay'].split())} words), "
+        f"objection answered",
     )
+
+    beats = book.beats()
+    problems = validate_beats(beats, spec)
+    if problems:
+        raise BuildError("board gate: " + "; ".join(problems))
+    write_board(book, spec, beats)
+    if book.text("frame.md") is None:
+        book.put_text("frame.md", default_frame(book.design()))
+    purposes = [str(row["purpose"]).lower() for row in beats]
+    planned = sum(float(row["seconds_est"]) for row in beats)
     book.pass_gate(
         "board",
-        f"storyboard from spec: {len(spec.scenes)} scenes, every scene has "
-        f"narration, overlay and label; durations estimated at "
-        f"{WORDS_PER_SECOND * 60:g} wpm",
+        f"{len(beats)} beats, turn at {purposes.index('turn') + 1}, payoff at "
+        f"{purposes.index('payoff') + 1}, planned {planned:.1f}s, every scene has "
+        f"a visual beat",
     )
 
     run_look(book, spec)
@@ -136,19 +159,23 @@ def _prepare(workspace: Workspace, spec: ReelSpec) -> ReelPlaybook:
     )
 
 
-def write_board(book: ReelPlaybook, spec: ReelSpec) -> None:
+def write_board(
+    book: ReelPlaybook, spec: ReelSpec, beats: list[dict] | None = None
+) -> None:
+    beats = beats or []
     lines = ["# STORYBOARD", ""]
     cursor = 0.0
     for index, scene in enumerate(spec.scenes, start=1):
-        words = len(scene.narration.split())
-        estimate = round(words / WORDS_PER_SECOND, 2)
+        beat = beats[index - 1] if index <= len(beats) else {}
+        estimate = float(beat.get("seconds_est") or len(scene.narration.split()) / WORDS_PER_SECOND)
         lines += [
             f"## Frame {index}: {scene.overlay} ({cursor:.2f}-{cursor + estimate:.2f} s est)",
+            f"- purpose: {beat.get('purpose', '-')}",
             f"- narration: {scene.narration}",
             f"- on-screen: {scene.overlay}",
             f"- label: {scene.label}",
-            f"- visual: procedural plate, seed {index}",
-            f"- estimated: {estimate:.2f}s ({words} words)",
+            f"- visual beat: {beat.get('visual_beat', 'procedural plate')}",
+            f"- estimated: {estimate:.2f}s",
             "",
         ]
         cursor = round(cursor + estimate, 2)
@@ -195,20 +222,6 @@ def run_look(book: ReelPlaybook, spec: ReelSpec) -> list[dict]:
         key = book.store.key(visual.tool, visual.tool_version, visual.seed, index)
         book.catalog.cache_put(key, sha, visual.tool, visual.tool_version)
         written.append({"index": index, "sha": sha, "path": path, "visual": visual})
-
-    frame = [
-        "# FRAME",
-        "",
-        f"- title: {spec.title}",
-        f"- kicker: {spec.kicker}",
-        "- size: 1080x1920, 30 fps",
-        "- palette: #0b0b0c ground, #f2efe6 type, #e0a33e accent, #8a867c secondary",
-        "- type: Helvetica Neue 92-128 px display, 30 px mono labels",
-        "- margins: 82 px side, 52 px frame inset",
-        "- plates: procedural SVG, 1080x1920, seeded per scene",
-        "",
-    ]
-    book.put_text("frame.md", "\n".join(frame))
 
     credits = ["# CREDITS", "", "All visuals generated locally. No third-party media.", ""]
     credits += [

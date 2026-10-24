@@ -117,3 +117,52 @@ class CacheKey(models.Model):
 
     class Meta:
         db_table = "cache_keys"
+
+
+class Idea(models.Model):
+    slug = models.TextField(primary_key=True)
+    sentence = models.TextField()
+    insight = models.TextField()
+    goal = models.TextField()
+    score = models.FloatField()
+    citations_json = models.TextField()
+    alternatives_json = models.TextField()
+    adversarial_json = models.TextField()
+    created_at = models.TextField()
+
+    class Meta:
+        db_table = "ideas"
+
+
+class Hook(models.Model):
+    slug = models.TextField()
+    idx = models.IntegerField()
+    archetype = models.TextField()
+    spoken = models.TextField()
+    first_frame = models.TextField()
+    overlay = models.TextField()
+    chosen = models.BooleanField(default=False)
+    objection = models.TextField(null=True)
+    answer = models.TextField(null=True)
+
+    class Meta:
+        db_table = "hooks"
+        constraints = [
+            models.UniqueConstraint(fields=["slug", "idx"], name="hook_pk"),
+        ]
+
+
+class Beat(models.Model):
+    slug = models.TextField()
+    idx = models.IntegerField()
+    name = models.TextField()
+    purpose = models.TextField()
+    overlay = models.TextField()
+    visual_beat = models.TextField()
+    seconds_est = models.FloatField()
+
+    class Meta:
+        db_table = "beats"
+        constraints = [
+            models.UniqueConstraint(fields=["slug", "idx"], name="beat_pk"),
+        ]

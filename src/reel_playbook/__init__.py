@@ -5,6 +5,8 @@ from .book import ReelPlaybook, StateError
 from .build import build, import_project
 from .compose import compose, scene_windows
 from .content import ReelSpec, SceneSpec, load_spec
+from .creative import validate_beats, validate_hooks, validate_idea
+from .design import Design, default_frame, parse_frame
 from .imagetools import Procedural, Visual, Waveform, catalogue, get
 from .models import (
     VERSION,
@@ -29,6 +31,7 @@ __all__ = [
     "AlignResult",
     "Catalog",
     "Cue",
+    "Design",
     "DraftResult",
     "FasterWhisper",
     "FlowTracker",
@@ -57,13 +60,18 @@ __all__ = [
     "check_timeline",
     "compose",
     "cues_from_words",
+    "default_frame",
     "get",
     "import_project",
     "load_spec",
     "map_words",
     "mix",
+    "parse_frame",
     "resolve",
     "scene_windows",
     "synthesize_master",
+    "validate_beats",
+    "validate_hooks",
+    "validate_idea",
     "write_cues",
 ]

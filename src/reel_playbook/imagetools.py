@@ -15,7 +15,7 @@ from pathlib import Path
 
 from .content import SceneSpec
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 
 @dataclass
@@ -47,26 +47,54 @@ class Procedural:
             for col in range(10):
                 cx = 90 + col * 100 + rng.randint(-18, 18)
                 cy = 140 + row * 100 + rng.randint(-18, 18)
-                radius = rng.choice([2, 3, 4, 6, 8])
-                opacity = round(rng.uniform(0.05, 0.16), 3)
+                radius = rng.choice([3, 4, 6, 9, 12])
+                opacity = round(rng.uniform(0.10, 0.32), 3)
                 dots.append(
                     f'<circle cx="{cx}" cy="{cy}" r="{radius}" '
                     f'fill="#e0a33e" opacity="{opacity}"/>'
                 )
         arc = rng.randint(280, 520)
+        rings = []
+        for n, radius in enumerate((rng.randint(380, 520), rng.randint(240, 360),
+                                    rng.randint(120, 200))):
+            rings.append(
+                f'<circle cx="{width - 110}" cy="{arc}" r="{radius}" fill="none" '
+                f'stroke="#e0a33e" stroke-width="{2 - n * 0.4}" '
+                f'opacity="{0.26 - n * 0.06}"/>'
+            )
+        hatch = []
+        for n in range(14):
+            x = 40 + n * 78 + rng.randint(-10, 10)
+            hatch.append(
+                f'<line x1="{x}" y1="1180" x2="{x + 260}" y2="1700" '
+                f'stroke="#f4efe4" stroke-width="1" opacity="0.05"/>'
+            )
         lines = []
         for n in range(3):
-            y = 1180 + n * 130 + rng.randint(-30, 30)
-            w = rng.randint(300, 760)
+            y = 1180 + n * 150 + rng.randint(-30, 30)
+            w = rng.randint(360, 820)
             lines.append(
-                f'<rect x="82" y="{y}" width="{w}" height="2" '
-                f'fill="#f2efe6" opacity="0.10"/>'
+                f'<rect x="96" y="{y}" width="{w}" height="1.5" '
+                f'fill="#f4efe4" opacity="0.12"/>'
             )
         svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
-<circle cx="{width - 120}" cy="{arc}" r="{rng.randint(200, 340)}" fill="none" stroke="#e0a33e" stroke-width="2" opacity="0.16"/>
-<circle cx="{width - 120}" cy="{arc}" r="{rng.randint(90, 180)}" fill="none" stroke="#f2efe6" stroke-width="1" opacity="0.10"/>
+<defs>
+  <radialGradient id="wash" cx="78%" cy="18%" r="80%">
+    <stop offset="0%" stop-color="#3a2c14" stop-opacity="0.55"/>
+    <stop offset="55%" stop-color="#16130e" stop-opacity="0.85"/>
+    <stop offset="100%" stop-color="#0d0c0a" stop-opacity="1"/>
+  </radialGradient>
+  <linearGradient id="low" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#0d0c0a" stop-opacity="0"/>
+    <stop offset="100%" stop-color="#0d0c0a" stop-opacity="0.9"/>
+  </linearGradient>
+</defs>
+<rect width="{width}" height="{height}" fill="url(#wash)"/>
+{''.join(rings)}
+{''.join(hatch)}
 {''.join(dots)}
 {''.join(lines)}
+<rect y="{height - 700}" width="{width}" height="700" fill="url(#low)"/>
 </svg>
 """
         return Visual(

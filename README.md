@@ -52,6 +52,10 @@ uv run reel check 04-five-minutes
 uv run reel render 04-five-minutes
 uv run reel timeline 04-five-minutes --video out.mp4
 
+uv run reel idea 04-five-minutes --file idea.json
+uv run reel hook 04-five-minutes --file hooks.json
+uv run reel board 04-five-minutes --file beats.json
+uv run reel design 04-five-minutes --file frame.md
 uv run reel tools                     # ImageTools
 uv run reel import ~/Videos/reels/01-2009-1969
 uv run reel export 04-five-minutes /tmp/reel-export
@@ -63,9 +67,9 @@ uv run reel audit assets/voice.wav     # uv run --extra audit ...
 
 | # | Name | Id | Gate | Locks on exit |
 |---|------|----|------|----------------|
-| 1 | Spark | `idea` | one sentence, HumanKind >= 7, cited input | - |
-| 2 | First Three Seconds | `hook` | hook checklist, muted legible | - |
-| 3 | Storyboard | `board` | every scene has a visual beat, durations estimated | - |
+| 1 | Spark | `idea` | score >= 7, insight shape, cited claims, 2 rejected concepts, objection answered | - |
+| 2 | First Three Seconds | `hook` | 6+ hooks, 3+ archetypes, one winner, 3-7 word overlay, objection answered | - |
+| 3 | Storyboard | `board` | one beat per scene, a turn and a payoff, planned length within 25% | - |
 | 4 | Look | `look` | every scene has a visual, credits complete, 9:16 legible | - |
 | 5 | Voice | `voice` | cue drift <= 80 ms, max pause <= 1.2 s, loudness in range | voice, tts_model, duration |
 | 6 | Print | `print` | check 0 errors, duration, captions on cue, frames inspected | - |
@@ -74,6 +78,22 @@ States: `IDEA -> HOOK -> BOARD -> LOOK -> VOICE -> PRINT -> DONE`.
 `pass` moves one state right. `fail` counts to three, then stops the run.
 `rewind` reopens a step and deletes every gate and lock at or after it; a rewind
 to `voice` or earlier clears the cue map.
+
+## Creative records
+
+Steps 1-3 are rows, not prose. `reel build` refuses to start without them:
+
+- `ideas`: sentence, insight (`wants X, but Y, because Z`), goal, score,
+  citations, rejected alternatives, adversarial objection and answer.
+- `hooks`: six or more, three or more archetypes, overlays of 3-7 words, one
+  chosen with the objection against it and the answer.
+- `beats`: one per scene, first is the hook, one turn, one payoff, overlays
+  match the spec, planned length within 25% of the script estimate.
+
+`frame.md` is the look, as input: palette, fonts and caption position live in
+its frontmatter and `compose` reads them. The required skills are vendored under
+`skills/` (`creative-director`, `hyperframes-creative`, `video-script`,
+`ig-hook-extractor`).
 
 ## Storage
 
@@ -105,6 +125,8 @@ src/reel_playbook/
   models.py    Tokens, GateRecord, Cue, flow tracker, reports
   book.py      ReelPlaybook: FSM, gates, logs, flow, timeline, drafting
   storage.py   Workspace, content-addressed Store, Catalog over the ORM
+  creative.py  the step 1-3 validators
+  design.py    frame.md tokens (input, not output)
   db/          Django ORM models, settings and migrations (postgres only)
   content.py   ReelSpec / SceneSpec, loader
   build.py     the pipeline: spec -> gates -> look -> voice -> compose -> render

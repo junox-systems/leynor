@@ -251,6 +251,7 @@ class ReelPlaybook:
         for token, locked_state in list(self.locked_at.items()):
             if STATES.index(locked_state) >= STATES.index(spec.state):
                 del self.locked_at[token]
+        self._catalog.delete_creative_from(self.slug, spec.id)
         if spec.index <= BY_ID["voice"].index:
             self._catalog.put_cues(self.slug, [])
             captions = self.root / "captions.json"
@@ -347,6 +348,32 @@ class ReelPlaybook:
 
     def cue_dicts(self) -> list[dict]:
         return [cue.model_dump() for cue in self.cues()]
+
+    def idea(self) -> dict | None:
+        return self._catalog.get_idea(self.slug)
+
+    def hooks(self) -> list[dict]:
+        return self._catalog.get_hooks(self.slug)
+
+    def beats(self) -> list[dict]:
+        return self._catalog.get_beats(self.slug)
+
+    def put_idea(self, record: dict) -> None:
+        self._catalog.put_idea(self.slug, record)
+        self._log("build", self.state, self.state, f"idea: score {record['score']}")
+
+    def put_hooks(self, rows: list[dict]) -> None:
+        self._catalog.put_hooks(self.slug, rows)
+        self._log("build", self.state, self.state, f"hooks: {len(rows)}")
+
+    def put_beats(self, rows: list[dict]) -> None:
+        self._catalog.put_beats(self.slug, rows)
+        self._log("build", self.state, self.state, f"beats: {len(rows)}")
+
+    def design(self):
+        from .design import parse_frame
+
+        return parse_frame(self.text("frame.md"))
 
     def artifacts(self) -> list[dict]:
         return self._catalog.list_artifacts(self.slug)

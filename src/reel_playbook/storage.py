@@ -241,6 +241,85 @@ class Catalog:
             },
         )
 
+    # creative records -------------------------------------------------
+
+    def put_idea(self, slug: str, record: dict) -> None:
+        self.m.Idea.objects.update_or_create(
+            slug=slug,
+            defaults={
+                "sentence": record["sentence"],
+                "insight": record["insight"],
+                "goal": record["goal"],
+                "score": float(record["score"]),
+                "citations_json": json.dumps(record.get("citations") or []),
+                "alternatives_json": json.dumps(record.get("alternatives") or []),
+                "adversarial_json": json.dumps(record.get("adversarial") or {}),
+                "created_at": now(),
+            },
+        )
+
+    def get_idea(self, slug: str) -> dict | None:
+        row = self.m.Idea.objects.filter(slug=slug).values().first()
+        if not row:
+            return None
+        row["citations"] = json.loads(row.pop("citations_json") or "[]")
+        row["alternatives"] = json.loads(row.pop("alternatives_json") or "[]")
+        row["adversarial"] = json.loads(row.pop("adversarial_json") or "{}")
+        return row
+
+    def put_hooks(self, slug: str, rows: list[dict]) -> None:
+        self.m.Hook.objects.filter(slug=slug).delete()
+        self.m.Hook.objects.bulk_create(
+            [
+                self.m.Hook(
+                    slug=slug,
+                    idx=index,
+                    archetype=row["archetype"],
+                    spoken=row["spoken"],
+                    first_frame=row["first_frame"],
+                    overlay=row["overlay"],
+                    chosen=bool(row.get("chosen")),
+                    objection=row.get("objection"),
+                    answer=row.get("answer"),
+                )
+                for index, row in enumerate(rows)
+            ]
+        )
+
+    def get_hooks(self, slug: str) -> list[dict]:
+        return list(self.m.Hook.objects.filter(slug=slug).order_by("idx").values())
+
+    def put_beats(self, slug: str, rows: list[dict]) -> None:
+        self.m.Beat.objects.filter(slug=slug).delete()
+        self.m.Beat.objects.bulk_create(
+            [
+                self.m.Beat(
+                    slug=slug,
+                    idx=index,
+                    name=row["name"],
+                    purpose=row["purpose"],
+                    overlay=row["overlay"],
+                    visual_beat=row["visual_beat"],
+                    seconds_est=float(row["seconds_est"]),
+                )
+                for index, row in enumerate(rows)
+            ]
+        )
+
+    def get_beats(self, slug: str) -> list[dict]:
+        return list(self.m.Beat.objects.filter(slug=slug).order_by("idx").values())
+
+    def delete_creative_from(self, slug: str, step: str) -> None:
+        order = ["idea", "hook", "board"]
+        if step not in order:
+            return
+        if order.index(step) <= 0:
+            self.m.Idea.objects.filter(slug=slug).delete()
+        if order.index(step) <= 1:
+            self.m.Hook.objects.filter(slug=slug).delete()
+        if order.index(step) <= 2:
+            self.m.Beat.objects.filter(slug=slug).delete()
+
     # cues and renders -------------------------------------------------
 
     def put_cues(self, slug: str, cues: list[dict]) -> None:

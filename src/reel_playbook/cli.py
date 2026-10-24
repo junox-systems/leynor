@@ -124,7 +124,7 @@ def cmd_look(args) -> int:
     book = _book(args)
     written = run_look(book, _spec(args))
     for row in written:
-        print(f"s{row['index']}  {row['path'].name}  {row['ref']}")
+        print(f"s{row['index']}  {row['path']}  {row['sha'][:12]}")
     print(f"{len(written)} plates, credits at assets/CREDITS.md")
     return 0
 
@@ -185,6 +185,77 @@ def cmd_timeline(args) -> int:
 def cmd_list(args) -> int:
     for row in _ws(args).catalog().list_projects():
         print(f"{row['slug']:<32} {row['state']:<6} {row['duration_s'] or '-'}")
+    return 0
+
+
+def _json(path: str):
+    import json
+
+    return json.loads(Path(path).read_text())
+
+
+def _problems(problems: list[str]) -> int:
+    for problem in problems:
+        print(f"FAIL {problem}", file=sys.stderr)
+    return 1
+
+
+def cmd_idea(args) -> int:
+    book = _book(args)
+    if args.file is None:
+        import json
+
+        print(json.dumps(book.idea(), indent=2))
+        return 0
+    record = _json(args.file)
+    problems = validate_idea(record)
+    if problems:
+        return _problems(problems)
+    book.put_idea(record)
+    print(f"idea stored, score {record['score']}")
+    return 0
+
+
+def cmd_hook(args) -> int:
+    book = _book(args)
+    if args.file is None:
+        import json
+
+        print(json.dumps(book.hooks(), indent=2))
+        return 0
+    rows = _json(args.file)
+    problems = validate_hooks(rows)
+    if problems:
+        return _problems(problems)
+    book.put_hooks(rows)
+    print(f"{len(rows)} hooks stored, winner chosen")
+    return 0
+
+
+def cmd_board(args) -> int:
+    book = _book(args)
+    if args.file is None:
+        import json
+
+        print(json.dumps(book.beats(), indent=2))
+        return 0
+    rows = _json(args.file)
+    problems = validate_beats(rows, stored_spec(book))
+    if problems:
+        return _problems(problems)
+    book.put_beats(rows)
+    print(f"{len(rows)} beats stored")
+    return 0
+
+
+def cmd_design(args) -> int:
+    book = _book(args)
+    if args.file is None:
+        print(book.text("frame.md") or default_frame(book.design()))
+        return 0
+    book.put_text("frame.md", Path(args.file).read_text())
+    design = parse_frame(book.text("frame.md"))
+    print(f"frame.md stored, bg {design.bg}, accent {design.accent}")
     return 0
 
 
@@ -289,6 +360,17 @@ def build_parser() -> argparse.ArgumentParser:
     setting = add("set", cmd_set, "set a token (voice, tts_model, duration)")
     setting.add_argument("key")
     setting.add_argument("value")
+
+    for name, func, text in (
+        ("idea", cmd_idea, "store or show the idea record"),
+        ("hook", cmd_hook, "store or show the hook set"),
+        ("board", cmd_board, "store or show the beat plan"),
+    ):
+        sp = add(name, func, text)
+        sp.add_argument("--file", default=None)
+
+    design = add("design", cmd_design, "show or replace frame.md tokens")
+    design.add_argument("--file", default=None)
 
     build_cmd = sub.add_parser("build", help="run all six steps from a content spec")
     build_cmd.add_argument("spec", help="spec path or project slug")

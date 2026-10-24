@@ -94,7 +94,7 @@ def test_compose_writes_host_captions_and_scenes(tmp_path, spec, cues):
     assert written["s1"].exists()
 
     captions = (tmp_path / "compositions" / "captions.html").read_text()
-    assert captions.count('class="cue"') == 2
+    assert captions.count('class="clip cue"') == 2
     assert 'data-start="0.12"' in captions
 
     scene = (tmp_path / "compositions" / "s1.html").read_text()
@@ -112,3 +112,21 @@ def test_compose_ids_match_hosts(tmp_path, spec, cues):
         *(f"s{i}" for i in range(1, len(spec.scenes) + 1)),
     }
     assert ids == files
+
+
+def test_compose_uses_design_tokens(tmp_path, spec, cues):
+    from reel_playbook.design import Design
+
+    compose(
+        tmp_path,
+        spec,
+        cues,
+        6.4,
+        {},
+        Design(bg="#101010", accent="#ff0000", caption_bottom="22%"),
+    )
+    scene = (tmp_path / "compositions" / "s1.html").read_text()
+    assert "#ff0000" in scene
+    assert "#101010" in scene
+    captions = (tmp_path / "compositions" / "captions.html").read_text()
+    assert "bottom:22%" in captions

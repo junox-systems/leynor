@@ -22,7 +22,10 @@ def clean():
     setup()
     for model in (
         m.Artifact,
+        m.Beat,
         m.Blob,
+        m.Hook,
+        m.Idea,
         m.CacheKey,
         m.Cue,
         m.Gate,
