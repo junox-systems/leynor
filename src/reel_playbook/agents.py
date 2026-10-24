@@ -45,13 +45,14 @@ class Agents:
         )
 
 
-def build_agents(model: str | None = None) -> Agents:
+def build_agents(model: str | None = None, skills: str = "") -> Agents:
     """Build the three agents. Model strings look like 'openai:gpt-5-mini'."""
     options: dict = {"defer_model_check": True}
     if model:
         options["model"] = model
+    drafter = f"{DRAFTER}\n\n{skills}" if skills else DRAFTER
     return Agents(
-        drafter=Agent(system_prompt=DRAFTER, **options),
+        drafter=Agent(system_prompt=drafter, **options),
         critic=Agent(system_prompt=CRITIC, **options),
         reviser=Agent(system_prompt=REVISER, **options),
     )

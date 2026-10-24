@@ -8,6 +8,7 @@ from .book import ReelPlaybook, StateError
 from .build import (
     BuildError,
     build,
+    store_spec,
     import_project,
     run_check,
     run_compose,
@@ -17,7 +18,11 @@ from .build import (
     run_waveforms,
     stored_spec,
 )
+from .content import load_spec
+from .creative import validate_beats, validate_hooks, validate_idea
+from .design import default_frame, parse_frame
 from .imagetools import catalogue
+from .skills import missing, skill_paths
 from .models import VERSION
 from .steps import STEPS
 from .storage import Workspace
@@ -200,6 +205,35 @@ def _problems(problems: list[str]) -> int:
     return 1
 
 
+def cmd_skills(args) -> int:
+    step = next((spec for spec in STEPS if args.step in (spec.id, spec.state.lower())), None)
+    if step is None:
+        print(f"unknown step {args.step!r}", file=sys.stderr)
+        return 1
+    print(f"{step.index}. {step.name} ({step.id})")
+    for label, optional in (("must", False), ("optional", True)):
+        for path in skill_paths(step, optional=optional):
+            mark = "MISSING" if not path.exists() else ""
+            print(f"  {label:<8} {path} {mark}".rstrip())
+    if missing(step):
+        return 1
+    return 0
+
+
+def cmd_spec(args) -> int:
+    book = _book(args)
+    if args.file is None:
+        print(book.text("spec.json") or "")
+        return 0
+    spec = load_spec(args.file)
+    if spec.slug != book.slug:
+        print(f"FAIL spec slug {spec.slug!r} does not match {book.slug!r}", file=sys.stderr)
+        return 1
+    store_spec(book, spec)
+    print(f"spec stored: {len(spec.scenes)} scenes")
+    return 0
+
+
 def cmd_idea(args) -> int:
     book = _book(args)
     if args.file is None:
@@ -360,6 +394,13 @@ def build_parser() -> argparse.ArgumentParser:
     setting = add("set", cmd_set, "set a token (voice, tts_model, duration)")
     setting.add_argument("key")
     setting.add_argument("value")
+
+    skills_cmd = sub.add_parser("skills", help="skills a step must read")
+    skills_cmd.add_argument("step")
+    skills_cmd.set_defaults(func=cmd_skills)
+
+    spec_cmd = add("spec", cmd_spec, "store or show the scene script")
+    spec_cmd.add_argument("--file", default=None)
 
     for name, func, text in (
         ("idea", cmd_idea, "store or show the idea record"),

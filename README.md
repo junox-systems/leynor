@@ -79,6 +79,13 @@ States: `IDEA -> HOOK -> BOARD -> LOOK -> VOICE -> PRINT -> DONE`.
 `rewind` reopens a step and deletes every gate and lock at or after it; a rewind
 to `voice` or earlier clears the cue map.
 
+## Duration
+
+`target_seconds` in the spec sets the cut length: 60-120, default 60. The board
+gate fails unless the planned beats land within 15% of it, and unless the script
+has at least 80% of the words it needs (about 2.5 words per second, so 150-300
+words). Duration is planned, not whatever the takes happen to add up to.
+
 ## Creative records
 
 Steps 1-3 are rows, not prose. `reel build` refuses to start without them:
@@ -91,9 +98,13 @@ Steps 1-3 are rows, not prose. `reel build` refuses to start without them:
   match the spec, planned length within 25% of the script estimate.
 
 `frame.md` is the look, as input: palette, fonts and caption position live in
-its frontmatter and `compose` reads them. The required skills are vendored under
-`skills/` (`creative-director`, `hyperframes-creative`, `video-script`,
-`ig-hook-extractor`).
+its frontmatter and `compose` reads them. Skills are vendored under `skills/`:
+`creative-director`, `hyperframes` (plus `-core`, `-animation`, `-keyframes`,
+`-registry`, `-cli`, `-creative`), `video-script`, `ig-hook-extractor`,
+`ig-audience-insights`, `ig-content-planner`, `ig-hashtag-strategist`,
+`ig-humanizer`, `viral-hooks`, `viral-instagram-reels`, `viral-short-form`,
+`viral-short-form-ideas`, `viral-youtube-shorts`, `viral-captions-and-ctas`,
+`image-visual-skills`, `video-visual-skills`.
 
 ## Storage
 

@@ -126,7 +126,11 @@ def sentence_spans(spec: ReelSpec) -> list[tuple[int, str, int, int]]:
 
 
 def cues_from_words(
-    spec: ReelSpec, words: list[Word], lead: float = 0.12, tail: float = 0.35
+    spec: ReelSpec,
+    words: list[Word],
+    lead: float = 0.12,
+    tail: float = 0.35,
+    duration: float | None = None,
 ) -> list[dict]:
     cues: list[dict] = []
     previous_end = 0.0
@@ -136,6 +140,9 @@ def cues_from_words(
             continue
         start = max(0.0, chunk[0].start - lead, previous_end)
         end = max(start + 0.2, chunk[-1].end + tail)
+        if duration is not None:
+            end = min(end, duration)
+            start = min(start, max(0.0, end - 0.2))
         cues.append(
             {
                 "scene": scene,
@@ -206,8 +213,10 @@ class FasterWhisper:
         if not heard:
             raise AlignError(f"no speech found in {wav}")
         words, coverage = map_words(tokens(spec.script()), heard)
+        from .voice import duration as wav_duration
+
         return AlignResult(
-            cues=cues_from_words(spec, words),
+            cues=cues_from_words(spec, words, duration=wav_duration(wav)),
             words=words,
             coverage=round(coverage, 3),
             backend=self.name,

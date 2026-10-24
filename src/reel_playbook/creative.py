@@ -138,6 +138,17 @@ def validate_beats(rows: list[dict], spec: ReelSpec) -> list[str]:
         problems.append(
             f"planned {planned:.1f}s is outside 25% of the {estimate:.1f}s script"
         )
+    target = spec.target_seconds
+    if not 0.85 * target <= planned <= 1.15 * target:
+        problems.append(
+            f"planned {planned:.1f}s is outside 15% of the {target}s target"
+        )
+    words = sum(len(scene.narration.split()) for scene in spec.scenes)
+    needed = target * WORDS_PER_SECOND
+    if words < 0.8 * needed:
+        problems.append(
+            f"{words} words is short of the {int(needed)} words a {target}s cut needs"
+        )
     return problems
 
 

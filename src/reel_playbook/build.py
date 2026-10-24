@@ -21,6 +21,7 @@ from .design import default_frame
 from .imagetools import Procedural, Waveform
 from .steps import STEPS
 from .storage import Workspace, now
+from .timeline import probe_duration
 from .tts import PocketTTS
 from .voice import MixError, MixReport, mix, synthesize_master
 
@@ -54,7 +55,7 @@ def build(
         book = ReelPlaybook.open(workspace, target)
         spec = stored_spec(book)
         if book.state != "IDEA":
-            book.rewind("idea", "rebuild from stored spec")
+            book.rewind("idea", "rebuild from stored spec", keep_creative=True)
 
     idea = book.idea()
     problems = validate_idea(idea)
@@ -92,8 +93,8 @@ def build(
     book.pass_gate(
         "board",
         f"{len(beats)} beats, turn at {purposes.index('turn') + 1}, payoff at "
-        f"{purposes.index('payoff') + 1}, planned {planned:.1f}s, every scene has "
-        f"a visual beat",
+        f"{purposes.index('payoff') + 1}, planned {planned:.1f}s against a "
+        f"{spec.target_seconds}s target, every scene has a visual beat",
     )
 
     run_look(book, spec)
@@ -148,7 +149,7 @@ def _prepare(workspace: Workspace, spec: ReelSpec) -> ReelPlaybook:
     if workspace.catalog().get_project(spec.slug) is not None:
         book = ReelPlaybook.open(workspace, spec.slug)
         if book.state != "IDEA":
-            book.rewind("idea", "rebuild from spec")
+            book.rewind("idea", "rebuild from spec", keep_creative=True)
         return book
     return _create_fresh(
         workspace,
@@ -346,7 +347,19 @@ def run_compose(book: ReelPlaybook, spec: ReelSpec) -> dict[str, Path]:
 def run_check(book: ReelPlaybook) -> str:
     with book.workspace.scratch() as scratch:
         book.materialize(scratch)
-        return _npx(["check", "."], scratch)
+        output = _npx(["check", "."], scratch)
+    errors, warnings = check_summary(output)
+    if errors or warnings:
+        raise BuildError(f"hyperframes check: {errors} errors, {warnings} warnings")
+    return output
+
+
+def check_summary(output: str) -> tuple[int, int]:
+    """Read the `N error(s), M warning(s)` line; silence is a failure."""
+    match = re.search(r"(\d+) error\(s\), (\d+) warning\(s\)", output)
+    if not match:
+        raise BuildError("hyperframes check printed no summary line")
+    return int(match.group(1)), int(match.group(2))
 
 
 def run_render(book: ReelPlaybook, *, quality: str = "delivery") -> Path:
@@ -356,6 +369,7 @@ def run_render(book: ReelPlaybook, *, quality: str = "delivery") -> Path:
         rendered = scratch / "out.mp4"
         if not rendered.exists():
             raise BuildError("render finished but out.mp4 is missing")
+        rendered = _fit_video(rendered, book.tokens.duration, book.tokens.fps, scratch)
         shutil.copy2(rendered, book.render_path)
     book.catalog.put_render(
         book.slug,
@@ -369,6 +383,24 @@ def run_render(book: ReelPlaybook, *, quality: str = "delivery") -> Path:
         },
     )
     return book.render_path
+
+
+def _fit_video(rendered: Path, duration: float | None, fps: int, scratch: Path) -> Path:
+    """HyperFrames can emit a few extra trailing frames. Cut to the master once."""
+    if duration is None:
+        return rendered
+    length = probe_duration(rendered)
+    if length is None or length <= duration + 1 / fps:
+        return rendered
+    fitted = scratch / "fit.mp4"
+    result = subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-i", str(rendered), "-t", f"{duration:.3f}",
+         "-c", "copy", "-movflags", "+faststart", str(fitted)],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0 or not fitted.exists():
+        raise BuildError(f"could not fit the render to the master: {result.stderr[-400:]}")
+    return fitted
 
 
 def run_gate_check(book: ReelPlaybook, *, video: str | None = None) -> bool:

@@ -44,17 +44,21 @@ def hooks(count=6, archetypes=("number-first", "contrarian", "framework")):
     return rows
 
 
+LINE = " ".join(["word"] * 30)
+
+
 @pytest.fixture
 def spec():
     return ReelSpec(
         slug="ep-creative",
         title="Creative",
+        target_seconds=60,
         scenes=[
-            {"narration": "One line here.", "overlay": "One line", "label": "a"},
-            {"narration": "Two lines here now.", "overlay": "Two lines", "label": "b"},
-            {"narration": "Three lines here now.", "overlay": "Three lines", "label": "c"},
-            {"narration": "Four lines here now.", "overlay": "Four lines", "label": "d"},
-            {"narration": "Five lines here now.", "overlay": "Five lines", "label": "e"},
+            {"narration": LINE, "overlay": "One line", "label": "a"},
+            {"narration": LINE, "overlay": "Two lines", "label": "b"},
+            {"narration": LINE, "overlay": "Three lines", "label": "c"},
+            {"narration": LINE, "overlay": "Four lines", "label": "d"},
+            {"narration": LINE, "overlay": "Five lines", "label": "e"},
         ],
     )
 
@@ -67,7 +71,7 @@ def beats(spec):
             "purpose": purposes[index],
             "overlay": scene.overlay,
             "visual_beat": "plate and rule",
-            "seconds_est": len(scene.narration.split()) / 2.5,
+            "seconds_est": round(len(scene.narration.split()) / 2.5, 2),
         }
         for index, scene in enumerate(spec.scenes)
     ]
@@ -155,3 +159,47 @@ def test_build_refuses_without_idea(tmp_path):
     with pytest.raises(Exception) as error:
         build(ws, "ep-no-idea", render=False)
     assert "idea gate" in str(error.value)
+
+
+def test_target_must_be_60_to_120():
+    from pydantic import ValidationError
+
+    for value in (30, 180):
+        with pytest.raises(ValidationError):
+            ReelSpec(
+                slug="ep-target",
+                title="T",
+                target_seconds=value,
+                scenes=[
+                    {"narration": "a b c.", "overlay": "a b c", "label": "a"},
+                    {"narration": "d e f.", "overlay": "d e f", "label": "b"},
+                ],
+            )
+
+
+def test_beats_must_reach_the_target(spec):
+    rows = beats(spec)
+    for row in rows:
+        row["seconds_est"] = 2.0
+    problems = validate_beats(rows, spec)
+    assert any("target" in problem for problem in problems)
+
+
+def test_short_script_fails_the_target(spec):
+    short = ReelSpec(
+        slug="ep-short",
+        title="Short",
+        target_seconds=60,
+        scenes=[
+            {"narration": "one two.", "overlay": "one two", "label": "a"},
+            {"narration": "three four.", "overlay": "three four", "label": "b"},
+        ],
+    )
+    rows = [
+        {"name": "a", "purpose": "hook", "overlay": "one two",
+         "visual_beat": "plate", "seconds_est": 30.0},
+        {"name": "b", "purpose": "payoff", "overlay": "three four",
+         "visual_beat": "plate", "seconds_est": 30.0},
+    ]
+    problems = validate_beats(rows, short)
+    assert any("words is short" in problem for problem in problems)

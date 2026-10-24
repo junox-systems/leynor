@@ -34,6 +34,7 @@ class ReelSpec(BaseModel):
     tts_model: str = "english"
     sources: list[str] = Field(default_factory=list)
     pronounce: dict[str, str] = Field(default_factory=dict)
+    target_seconds: int = 60
     scenes: list[SceneSpec]
 
     @field_validator("slug")
@@ -41,6 +42,13 @@ class ReelSpec(BaseModel):
     def valid_slug(cls, value: str) -> str:
         if not SLUG.match(value):
             raise ValueError("slug is lowercase letters, digits and dashes")
+        return value
+
+    @field_validator("target_seconds")
+    @classmethod
+    def duration_window(cls, value: int) -> int:
+        if not 60 <= value <= 120:
+            raise ValueError("target_seconds must be 60-120")
         return value
 
     @field_validator("scenes")

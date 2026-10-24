@@ -75,7 +75,7 @@ class ReelPlaybook:
             )
             for step, gate in self._catalog.get_gates(slug).items()
         }
-        self._agents: Agents | None = None
+        self._agents: dict[str, Agents] = {}
 
     # -- construction ---------------------------------------------------
 
@@ -238,7 +238,7 @@ class ReelPlaybook:
             )
         return self.state
 
-    def rewind(self, step: str, reason: str) -> str:
+    def rewind(self, step: str, reason: str, *, keep_creative: bool = False) -> str:
         spec = self.spec(step)
         if spec.index > self._step_index():
             raise StateError(f"cannot rewind forward: {self.state} -> {spec.state}")
@@ -251,7 +251,8 @@ class ReelPlaybook:
         for token, locked_state in list(self.locked_at.items()):
             if STATES.index(locked_state) >= STATES.index(spec.state):
                 del self.locked_at[token]
-        self._catalog.delete_creative_from(self.slug, spec.id)
+        if not keep_creative:
+            self._catalog.delete_creative_from(self.slug, spec.id)
         if spec.index <= BY_ID["voice"].index:
             self._catalog.put_cues(self.slug, [])
             captions = self.root / "captions.json"
@@ -473,9 +474,13 @@ class ReelPlaybook:
         spec = self.spec(step)
         if not spec.llm:
             raise StateError(f"{spec.id} is not a drafting step")
-        if self._agents is None:
-            self._agents = build_agents(self.llm_model)
-        result = run_draft(spec.id, brief or (spec.prompt or ""), self._agents.deps())
+        from .skills import read as read_skills
+
+        if spec.id not in self._agents:
+            self._agents[spec.id] = build_agents(
+                self.llm_model, read_skills(spec, optional=True)
+            )
+        result = run_draft(spec.id, brief or (spec.prompt or ""), self._agents[spec.id].deps())
         self._log("draft", self.state, self.state, f"{spec.id}: {len(result.revised)} chars")
         self.save()
         return result

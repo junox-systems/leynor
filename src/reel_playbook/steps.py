@@ -31,6 +31,8 @@ class StepSpec(BaseModel):
     owner: str
     artifacts: list[str] = []
     locks: list[str] = []
+    skills: list[str] = []
+    optional_skills: list[str] = []
     llm: bool = False
     prompt: str | None = None
 
@@ -38,6 +40,12 @@ class StepSpec(BaseModel):
 STEPS: tuple[StepSpec, ...] = (
     StepSpec(
         id="idea",
+        skills=["creative-director/SKILL.md",
+            "creative-director/references/insight-mining.md",
+            "creative-director/references/scoring-calibration.md",
+            "creative-director/references/methods-catalog.md"],
+        optional_skills=["viral-short-form-ideas/SKILL.md",
+            "ig-audience-insights/SKILL.md"],
         state="IDEA",
         next_state="HOOK",
         index=1,
@@ -61,6 +69,8 @@ STEPS: tuple[StepSpec, ...] = (
     ),
     StepSpec(
         id="hook",
+        skills=["viral-hooks/SKILL.md", "viral-instagram-reels/SKILL.md"],
+        optional_skills=["ig-hook-extractor/SKILL.md"],
         state="HOOK",
         next_state="BOARD",
         index=2,
@@ -83,6 +93,13 @@ STEPS: tuple[StepSpec, ...] = (
     ),
     StepSpec(
         id="board",
+        skills=["video-script/SKILL.md",
+            "hyperframes-creative/SKILL.md",
+            "hyperframes-creative/references/story-spine.md",
+            "hyperframes-creative/references/beat-direction.md",
+            "hyperframes-creative/references/narration.md"],
+        optional_skills=["viral-short-form/SKILL.md",
+            "hyperframes-creative/references/storyboard-recipe.md"],
         state="BOARD",
         next_state="LOOK",
         index=3,
@@ -99,6 +116,16 @@ STEPS: tuple[StepSpec, ...] = (
     ),
     StepSpec(
         id="look",
+        skills=["hyperframes-core/SKILL.md",
+            "hyperframes-core/references/sub-compositions.md",
+            "hyperframes-core/references/tracks-and-clips.md",
+            "hyperframes-core/references/determinism-rules.md",
+            "hyperframes-creative/references/video-composition.md",
+            "hyperframes-creative/references/typography.md",
+            "hyperframes-creative/references/house-style.md"],
+        optional_skills=["hyperframes-registry/SKILL.md",
+            "hyperframes-keyframes/SKILL.md",
+            "image-visual-skills/SKILL.md"],
         state="LOOK",
         next_state="VOICE",
         index=4,
@@ -115,6 +142,9 @@ STEPS: tuple[StepSpec, ...] = (
     ),
     StepSpec(
         id="voice",
+        skills=["hyperframes-creative/references/narration.md",
+            "video-script/SKILL.md"],
+        optional_skills=["hyperframes-animation/SKILL.md"],
         state="VOICE",
         next_state="PRINT",
         index=5,
@@ -132,6 +162,9 @@ STEPS: tuple[StepSpec, ...] = (
     ),
     StepSpec(
         id="print",
+        skills=["hyperframes-cli/SKILL.md", "hyperframes-core/SKILL.md"],
+        optional_skills=["hyperframes-animation/SKILL.md",
+            "hyperframes-registry/SKILL.md"],
         state="PRINT",
         next_state="DONE",
         index=6,

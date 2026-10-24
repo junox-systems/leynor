@@ -98,3 +98,17 @@ def test_cues_never_overlap():
     cues = cues_from_words(spec, words)
     assert cues[0]["end"] <= cues[1]["start"]
     assert cues[1]["end"] <= cues[2]["start"]
+
+
+def test_cues_are_clamped_to_the_master():
+    spec = _spec()
+    words = [
+        Word("one", 0.2, 0.4),
+        Word("line", 0.45, 0.7),
+        Word("two", 0.8, 1.0),
+        Word("lines", 1.05, 1.3),
+        Word("three", 1.5, 1.8),
+        Word("lines", 1.85, 2.1),
+    ]
+    cues = cues_from_words(spec, words, duration=2.0)
+    assert max(cue["end"] for cue in cues) <= 2.0
