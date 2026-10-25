@@ -1,0 +1,341 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Reel Playbook: module layers and dependency flow",
+    "output": "reel-playbook-architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "state-path",
+        "label": "State and persistence",
+        "focus": [
+          "cli",
+          "build",
+          "book",
+          "storage",
+          "db",
+          "postgres"
+        ],
+        "note": "Every gate, token and artifact row moves through the playbook FSM into Postgres."
+      },
+      {
+        "id": "media-run",
+        "label": "Six-step media run",
+        "focus": [
+          "build",
+          "voice",
+          "visuals",
+          "hyperframes",
+          "timeline"
+        ],
+        "note": "Voice sets the clock, compose follows cue starts, HyperFrames renders, timeline proves agreement."
+      },
+      {
+        "id": "drafting",
+        "label": "Drafting support",
+        "focus": [
+          "book",
+          "llm",
+          "domain"
+        ],
+        "note": "The pydantic-ai draft graph and the step catalogue sit beside the state path, not inside it."
+      }
+    ],
+    "viewBox": [
+      1400,
+      560
+    ]
+  },
+  "components": [
+    {
+      "id": "cli",
+      "type": "backend",
+      "label": "CLI",
+      "sublabel": "reel \u00b7 28 commands",
+      "tag": "argparse",
+      "pos": [
+        40,
+        250
+      ],
+      "size": [
+        150,
+        70
+      ]
+    },
+    {
+      "id": "build",
+      "type": "backend",
+      "label": "build()",
+      "sublabel": "six-step orchestrator",
+      "tag": "run_* helpers",
+      "pos": [
+        250,
+        250
+      ],
+      "size": [
+        160,
+        78
+      ]
+    },
+    {
+      "id": "book",
+      "type": "backend",
+      "label": "ReelPlaybook",
+      "sublabel": "FSM + ledger",
+      "tag": "pass / fail / rewind",
+      "pos": [
+        470,
+        250
+      ],
+      "size": [
+        160,
+        78
+      ]
+    },
+    {
+      "id": "storage",
+      "type": "database",
+      "label": "Workspace \u00b7 Catalog",
+      "sublabel": "repository layer",
+      "tag": "artifacts + blobs",
+      "pos": [
+        690,
+        250
+      ],
+      "size": [
+        170,
+        78
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Django models",
+      "sublabel": "11 tables",
+      "tag": "src/reel_playbook/db",
+      "pos": [
+        920,
+        250
+      ],
+      "size": [
+        150,
+        78
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL 18",
+      "sublabel": "ParadeDB \u00b7 db reel",
+      "tag": "REEL_DB",
+      "pos": [
+        1130,
+        250
+      ],
+      "size": [
+        150,
+        70
+      ]
+    },
+    {
+      "id": "llm",
+      "type": "backend",
+      "label": "agents \u00b7 graphs \u00b7 skills",
+      "sublabel": "drafter, critic, reviser",
+      "tag": "pydantic-ai",
+      "pos": [
+        450,
+        80
+      ],
+      "size": [
+        170,
+        78
+      ]
+    },
+    {
+      "id": "domain",
+      "type": "backend",
+      "label": "steps \u00b7 content \u00b7 creative",
+      "sublabel": "catalogue, spec, gates",
+      "tag": "pure domain",
+      "pos": [
+        700,
+        80
+      ],
+      "size": [
+        200,
+        78
+      ]
+    },
+    {
+      "id": "voice",
+      "type": "backend",
+      "label": "TTS \u00b7 mix \u00b7 align",
+      "sublabel": "PocketTTS, loudnorm, whisper",
+      "tag": "one master take",
+      "pos": [
+        250,
+        440
+      ],
+      "size": [
+        190,
+        78
+      ]
+    },
+    {
+      "id": "visuals",
+      "type": "backend",
+      "label": "ImageTools \u00b7 compose",
+      "sublabel": "seeded plates, cue windows",
+      "tag": "deterministic HTML",
+      "pos": [
+        490,
+        440
+      ],
+      "size": [
+        190,
+        78
+      ]
+    },
+    {
+      "id": "hyperframes",
+      "type": "external",
+      "label": "HyperFrames CLI",
+      "sublabel": "npx check + render",
+      "tag": "0.8.188",
+      "pos": [
+        730,
+        440
+      ],
+      "size": [
+        190,
+        78
+      ]
+    },
+    {
+      "id": "timeline",
+      "type": "backend",
+      "label": "timeline gate",
+      "sublabel": "master = HTML = mp4",
+      "tag": "one-frame tolerance",
+      "pos": [
+        970,
+        440
+      ],
+      "size": [
+        190,
+        78
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "cli-to-build",
+      "from": "cli",
+      "to": "build",
+      "variant": "emphasis"
+    },
+    {
+      "id": "build-to-book",
+      "from": "build",
+      "to": "book",
+      "label": "gates"
+    },
+    {
+      "id": "book-to-storage",
+      "from": "book",
+      "to": "storage",
+      "label": "writes",
+      "labelAt": [
+        680,
+        352
+      ]
+    },
+    {
+      "id": "storage-to-db",
+      "from": "storage",
+      "to": "db",
+      "label": "ORM"
+    },
+    {
+      "id": "db-to-postgres",
+      "from": "db",
+      "to": "postgres",
+      "label": "SQL"
+    },
+    {
+      "id": "book-to-llm",
+      "from": "book",
+      "to": "llm",
+      "label": "draft",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "book-to-domain",
+      "from": "book",
+      "to": "domain",
+      "label": "rules",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "orthogonal-h"
+    },
+    {
+      "id": "build-to-voice",
+      "from": "build",
+      "to": "voice",
+      "label": "PocketTTS",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "voice-to-visuals",
+      "from": "voice",
+      "to": "visuals",
+      "label": "cues",
+      "variant": "emphasis"
+    },
+    {
+      "id": "visuals-to-hyperframes",
+      "from": "visuals",
+      "to": "hyperframes",
+      "label": "HTML"
+    },
+    {
+      "id": "hyperframes-to-timeline",
+      "from": "hyperframes",
+      "to": "timeline",
+      "label": "mp4",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Gates, not artifacts",
+      "items": [
+        "One open step; evidence is required to pass",
+        "Three attempts, then stop and report"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "One database, one file",
+      "items": [
+        "Spec, board, frame, HTML and captions are rows",
+        "Binary payloads dedupe by sha256 in blobs"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Voice is the clock",
+      "items": [
+        "ASR supplies timing; the script supplies words",
+        "Scene windows start at cue starts"
+      ]
+    }
+  ]
+}
