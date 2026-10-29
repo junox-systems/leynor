@@ -55,3 +55,6 @@ desktop.ini
 .hyperframes/
 node_modules/
 out.mp4
+
+# git worktrees used for isolated agent work
+.worktrees/
