@@ -18,7 +18,7 @@ env = environ.Env(
     ENVIRONMENT=(str, "development"),
     SECRET_KEY=(str, "django-insecure-development-key-for-local-use-only"),
     ALLOWED_HOSTS=(list, []),
-    DATABASE_URL=(str, "postgresql://postgres:postgres@db:5432/db"),
+    DATABASE_URL=(str, "postgresql://postgres:postgres@db:5432/leynor"),
     AWS_ACCESS_KEY_ID=(str, ""),
     AWS_SECRET_ACCESS_KEY=(str, ""),
     AWS_STORAGE_BUCKET_NAME=(str, ""),
@@ -160,7 +160,7 @@ FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
 # Database
 DATABASES = {
     "default": env.db(
-        "DATABASE_URL", default="postgresql://postgres:postgres@db:5432/db"
+        "DATABASE_URL", default="postgresql://postgres:postgres@db:5432/leynor"
     ),
 }
 DATABASES["default"]["CONN_MAX_AGE"] = 600

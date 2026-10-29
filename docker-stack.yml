@@ -10,7 +10,7 @@ services:
     # No published port: traffic enters through the nginx service.
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
-      DATABASE_URL: postgres://${POSTGRES_USER:-django}:${POSTGRES_PASSWORD:-django}@db:5432/${POSTGRES_DB:-django}
+      DATABASE_URL: postgres://${POSTGRES_USER:-leynor}:${POSTGRES_PASSWORD:-leynor}@db:5432/${POSTGRES_DB:-leynor}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-}
@@ -48,7 +48,7 @@ services:
         max_attempts: 3
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
-      DATABASE_URL: postgres://${POSTGRES_USER:-django}:${POSTGRES_PASSWORD:-django}@db:5432/${POSTGRES_DB:-django}
+      DATABASE_URL: postgres://${POSTGRES_USER:-leynor}:${POSTGRES_PASSWORD:-leynor}@db:5432/${POSTGRES_DB:-leynor}
       Q_CLUSTER_ROLE: heavy
       Q_CLUSTER_WORKERS: 1
       Q_CLUSTER_TIMEOUT: 3600
@@ -80,7 +80,7 @@ services:
         max_attempts: 3
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
-      DATABASE_URL: postgres://${POSTGRES_USER:-django}:${POSTGRES_PASSWORD:-django}@db:5432/${POSTGRES_DB:-django}
+      DATABASE_URL: postgres://${POSTGRES_USER:-leynor}:${POSTGRES_PASSWORD:-leynor}@db:5432/${POSTGRES_DB:-leynor}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-}
@@ -107,13 +107,13 @@ services:
       restart_policy:
         condition: any
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-django}
+      POSTGRES_USER: ${POSTGRES_USER:-leynor}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
-      POSTGRES_DB: ${POSTGRES_DB:-django}
+      POSTGRES_DB: ${POSTGRES_DB:-leynor}
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-django} -d ${POSTGRES_DB:-django}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-leynor} -d ${POSTGRES_DB:-leynor}"]
       interval: 5s
       timeout: 5s
       retries: 5

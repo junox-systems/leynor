@@ -454,7 +454,7 @@ behaviour (design, compose, timeline, encode) and no persisted state of its own.
 | `pyproject.toml` | rename to `leynor`; base deps `pydantic`, `pydantic-ai`; `heavy` extra; delete `[project.scripts]` |
 | `mise.toml`, `frontend/package.json`, `README.md`, `.env.example` | rename and add the REEL keys |
 | `dev/Dockerfile.heavy` | new: ffmpeg, Node, Chromium, HyperFrames, torch CPU, faster-whisper, pocket-tts |
-| `dev/docker-compose.dev.yml` | new `heavy` service, same bind mount, cluster env |
+| `dev/docker-compose.dev.yml` | project name `APP_SLUG`; new `heavy` service, same bind mount, cluster env |
 | `docker-stack.yml` | new `qcluster-heavy` service on the heavy image |
 | `justfile` | `qcluster-heavy-dev`, `heavy-up`, `heavy-logs` |
 | `templates/` | `projects/index.html`, `projects/new.html`, `projects/detail.html`, `runs/detail.html`, `runs/_trail.html`, `cotton/step_tracker.html` |
@@ -512,11 +512,13 @@ Heavy container overrides: `Q_CLUSTER_ROLE=heavy`,
 `dev/docker-compose.dev.yml`, new service:
 
 ```yaml
+  # The compose project name is APP_SLUG, so containers, networks and volumes
+  # are namespaced per app instead of per compose-file directory.
   heavy:
     build:
       context: ..
       dockerfile: dev/Dockerfile.heavy
-    container_name: leynor-heavy
+    container_name: ${APP_SLUG:-leynor}-heavy
     restart: unless-stopped
     depends_on:
       db:

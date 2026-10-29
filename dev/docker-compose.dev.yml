@@ -1,14 +1,20 @@
-# For development environment
+# For development environment.
+#
+# The compose project name is the app slug, so containers, networks and
+# volumes are namespaced per app instead of per directory. Without it,
+# compose names the project after the compose file's folder ("dev") and two
+# apps built from the same kit share a database.
+name: ${APP_SLUG:-leynor}
 
 services:
   db:
     image: paradedb/paradedb:0.26.2-pg18
-    container_name: django-db
+    container_name: ${APP_SLUG:-leynor}-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "postgres"
-      POSTGRES_DB: "db"
+      POSTGRES_DB: ${POSTGRES_DB:-leynor}
     volumes:
       - postgres_data:/var/lib/postgresql
     # No host port: everything, including manage.py from the app container,
@@ -22,7 +28,7 @@ services:
 
   clickstack:
     image: clickhouse/clickstack-local:2.33.0
-    container_name: django-clickstack
+    container_name: ${APP_SLUG:-leynor}-clickstack
     ports:
       - "8080:8080"
       - "4317:4317"
@@ -36,14 +42,14 @@ services:
     build:
       context: ..
       dockerfile: dev/Dockerfile
-    container_name: django-app
+    container_name: ${APP_SLUG:-leynor}-app
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
       - ENVIRONMENT=development
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/db
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/${POSTGRES_DB:-leynor}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://clickstack:4317
       - OTEL_ENABLED=${OTEL_ENABLED:-true}
       - VITE_HYPERDX_URL=http://localhost:4318
@@ -66,14 +72,14 @@ services:
     build:
       context: ..
       dockerfile: dev/Dockerfile.heavy
-    container_name: leynor-heavy
+    container_name: ${APP_SLUG:-leynor}-heavy
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
       - ENVIRONMENT=development
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/db
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/${POSTGRES_DB:-leynor}
       - Q_CLUSTER_ROLE=heavy
       - Q_CLUSTER_WORKERS=1
       - Q_CLUSTER_TIMEOUT=3600
