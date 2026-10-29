@@ -4,6 +4,8 @@ import os
 
 from typing import Optional
 
+from config.app import APP_SLUG
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,9 +42,7 @@ def initialize_opentelemetry() -> Optional[object]:
 
         resource = Resource.create(
             {
-                "service.name": os.environ.get(
-                    "OTEL_SERVICE_NAME", "leynor"
-                ),
+                "service.name": os.environ.get("OTEL_SERVICE_NAME", APP_SLUG),
                 "service.version": os.environ.get("OTEL_SERVICE_VERSION", "1.0.0"),
                 "deployment.environment": os.environ.get("ENVIRONMENT", "development"),
             }

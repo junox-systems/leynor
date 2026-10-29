@@ -74,12 +74,12 @@ services:
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/db
-      - Q_CLUSTER_NAME=leynor-heavy
+      - Q_CLUSTER_ROLE=heavy
       - Q_CLUSTER_WORKERS=1
       - Q_CLUSTER_TIMEOUT=3600
       - Q_CLUSTER_RETRY=3900
       - OTEL_ENABLED=false
-      - LEYNOR_ARTIFACT_ROOT=/app/var/artifacts
+      - APP_ARTIFACT_ROOT=/app/var/artifacts
     volumes:
       - ..:/app
       - heavy_venv:/app/.venv

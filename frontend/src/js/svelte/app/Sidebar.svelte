@@ -7,7 +7,7 @@
   // it derives the active item from location.pathname and refreshes on
   // `htmx:after:history:push`. Layout/visibility stay with Basecoat CSS + the sidebar
   // Stimulus controller; this component only renders <nav> contents.
-  let { groups } = $props();
+  let { groups, name = "App" } = $props();
 
   // Matches the form id in base_app.html, which holds the CSRF token.
   const LOGOUT_FORM_ID = "sidebar-logout";
@@ -61,7 +61,7 @@
 <nav>
   <header>
     <span class="font-heading flex h-12 items-center px-2 text-base font-semibold tracking-tight">
-      Leynor
+      {name}
     </span>
   </header>
 

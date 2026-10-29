@@ -11,6 +11,7 @@ map inside Sidebar.svelte — never pass raw SVG markup through JSON.
 
 from functools import lru_cache
 
+from django.conf import settings
 from django.urls import reverse
 
 
@@ -48,4 +49,9 @@ def app_nav(request):
     user = getattr(request, "user", None)
     if user is None or not user.is_authenticated:
         return {}
-    return {"app_nav": {"groups": _groups(user.is_staff)}}
+    return {
+        "app_nav": {
+            "name": settings.APP_NAME,
+            "groups": _groups(user.is_staff),
+        }
+    }

@@ -49,11 +49,11 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
       DATABASE_URL: postgres://${POSTGRES_USER:-django}:${POSTGRES_PASSWORD:-django}@db:5432/${POSTGRES_DB:-django}
-      Q_CLUSTER_NAME: leynor-heavy
+      Q_CLUSTER_ROLE: heavy
       Q_CLUSTER_WORKERS: 1
       Q_CLUSTER_TIMEOUT: 3600
       Q_CLUSTER_RETRY: 3900
-      LEYNOR_ARTIFACT_ROOT: /app/var/artifacts
+      APP_ARTIFACT_ROOT: /app/var/artifacts
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?CSRF_TRUSTED_ORIGINS required}

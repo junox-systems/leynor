@@ -41,7 +41,7 @@ def captured(monkeypatch):
 
 
 def test_draft_passes_the_configured_model(captured, settings):
-    settings.LEYNOR_LLM_MODEL = "openai:gpt-5-mini"
+    settings.APP_LLM_MODEL = "openai:gpt-5-mini"
     result = services.draft(Step.IDEA)
 
     assert captured["model"] == "openai:gpt-5-mini"
