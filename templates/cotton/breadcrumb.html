@@ -1,0 +1,12 @@
+{% comment %}
+    Two-level breadcrumb: the list a page belongs to, then the page.
+    Usage: breadcrumb, with :back, :back_url and :current.
+{% endcomment %}
+<c-vars back back_url current />
+<nav class="breadcrumb" aria-label="Breadcrumb">
+    <ol>
+        <li><a href="{{ back_url }}">{{ back }}</a></li>
+        <li aria-hidden="true">/</li>
+        <li><span aria-current="page">{{ current }}</span></li>
+    </ol>
+</nav>

@@ -29,6 +29,7 @@ urlpatterns = [
     path("dashboard/", include("apps.dashboard.urls")),
     path("dashboard/user/", include("apps.users.urls")),
     path("dashboard/orgs/", include("apps.orgs.urls")),
+    path("projects/", include("apps.projects.urls")),
     path("", include("apps.pages.urls")),
     # OpenAPI docs
     path(

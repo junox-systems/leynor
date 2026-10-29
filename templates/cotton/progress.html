@@ -1,0 +1,9 @@
+{% comment %}
+    Basecoat progress bar. :percent is 0-100.
+    Usage: progress, with :percent bound to an integer.
+{% endcomment %}
+<c-vars percent class />
+<div class="progress{% if class %} {{ class }}{% endif %}"
+     role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ percent }}">
+    <span style="width: {{ percent }}%"></span>
+</div>

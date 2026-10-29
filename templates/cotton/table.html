@@ -1,0 +1,11 @@
+{% comment %}
+    Basecoat table shell. Content (caption, thead, tbody) goes in the slot.
+    Usage: table, with the caption in :caption and the rows in the slot.
+{% endcomment %}
+<c-vars caption class />
+<div class="table-container">
+    <table class="table{% if class %} {{ class }}{% endif %}">
+        {% if caption %}<caption>{{ caption }}</caption>{% endif %}
+        {{ slot }}
+    </table>
+</div>

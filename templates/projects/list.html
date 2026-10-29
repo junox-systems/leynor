@@ -1,0 +1,56 @@
+{% extends "base_app.html" %}
+
+{% block title %}Reels — {{ app_name }}{% endblock %}
+{% block page_title %}Reels{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <p class="text-muted-foreground text-sm">
+            One route per reel: Spark, Hook, Board, Look, Voice, Print.
+        </p>
+        <c-btn href="{% url 'project_new' %}">Start a reel</c-btn>
+    </div>
+
+    {% if projects %}
+        <c-table>
+            <thead>
+                <tr>
+                    <th scope="col">Reel</th>
+                    <th scope="col" class="hidden sm:table-cell">Route</th>
+                    <th scope="col">Now</th>
+                    <th scope="col" class="text-end">Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for project in projects %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'project_detail' project.pk %}"
+                               class="font-medium underline-offset-4 hover:underline">{{ project.title }}</a>
+                            <div class="text-muted-foreground mt-0.5 font-mono text-xs">{{ project.slug }}</div>
+                        </td>
+                        <td class="hidden sm:table-cell"><c-route-dots :project="project" /></td>
+                        <td>
+                            {% if project.complete %}
+                                <c-badge variant="secondary">Complete</c-badge>
+                            {% elif project.current_gate.result == "rejected" %}
+                                <c-badge variant="destructive">Sent back</c-badge>
+                            {% else %}
+                                <span class="text-sm">{{ project.summary }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted-foreground text-end text-xs">{{ project.updated_at|date:"j M Y" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </c-table>
+    {% else %}
+        <c-empty title="No reels yet"
+                 description="A reel starts with one idea sentence and ends with a printed 9:16. Create the first one and its six gates appear here.">
+            <c-slot name="icon"><c-icon.film /></c-slot>
+            <c-btn href="{% url 'project_new' %}">Start a reel</c-btn>
+        </c-empty>
+    {% endif %}
+</div>
+{% endblock %}

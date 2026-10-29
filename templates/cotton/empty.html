@@ -1,0 +1,13 @@
+{% comment %}
+    Basecoat empty state: icon in the icon slot, title, description, actions in the default slot.
+    Usage: empty, with :title, :description, an icon slot and the action in the body.
+{% endcomment %}
+<c-vars title description />
+<section class="empty">
+    <header>
+        {% if icon %}<figure>{{ icon }}</figure>{% endif %}
+        <h3>{{ title }}</h3>
+        {% if description %}<p>{{ description }}</p>{% endif %}
+    </header>
+    {% if slot %}<footer>{{ slot }}</footer>{% endif %}
+</section>

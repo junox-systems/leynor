@@ -1,0 +1,20 @@
+{% comment %}
+    Native Basecoat dialog. Open it from a trigger with showModal() on :id.
+    Body goes in the default slot, buttons in the actions slot.
+    Usage: dialog, with :id, :title, :description and an actions slot.
+{% endcomment %}
+<c-vars id title description class />
+<dialog id="{{ id }}" class="dialog" aria-labelledby="{{ id }}-title" aria-describedby="{{ id }}-description"
+        onpointerdown="this.dataset.backdropPress = event.target === this"
+        onclick="if (event.target === this && this.dataset.backdropPress === 'true') this.close()">
+    <div class="{% if class %}{{ class }}{% else %}sm:max-w-sm{% endif %}">
+        <header>
+            <h2 id="{{ id }}-title">{{ title }}</h2>
+            {% if description %}<p id="{{ id }}-description">{{ description }}</p>{% endif %}
+        </header>
+        {% if slot %}<section>{{ slot }}</section>{% endif %}
+        <footer>{{ actions }}</footer>
+        <button type="button" class="btn" data-variant="ghost" data-size="icon-sm" aria-label="Close dialog"
+                onclick="this.closest('dialog').close()"><c-icon.x /></button>
+    </div>
+</dialog>

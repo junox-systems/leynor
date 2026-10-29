@@ -1,0 +1,21 @@
+{% comment %}
+    Six marks, one per gate, in route order: passed, sent back, in play, waiting.
+    The step in play is wider, so it reads at a glance in a table cell.
+    Usage: route-dots, with :project bound to a Project.
+{% endcomment %}
+<c-vars project />
+<div class="flex items-center gap-1"
+     role="img"
+     aria-label="{{ project.summary }}. {{ project.passed }} of 6 gates passed.">
+    {% for row in project.route %}
+        {% if row.state == "passed" %}
+            <span class="bg-primary h-1.5 w-6 rounded-full"></span>
+        {% elif row.state == "rejected" %}
+            <span class="bg-destructive h-1.5 w-6 rounded-full"></span>
+        {% elif row.state == "current" %}
+            <span class="bg-primary/60 h-1.5 w-8 rounded-full"></span>
+        {% else %}
+            <span class="bg-muted h-1.5 w-6 rounded-full"></span>
+        {% endif %}
+    {% endfor %}
+</div>
