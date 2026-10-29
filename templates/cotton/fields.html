@@ -1,0 +1,8 @@
+{# Every field of a Django form. Allauth reports a wrong password as a non-field error — omit it and invalid logins re-render silently. #}
+<c-vars form />
+{% if form.non_field_errors %}
+    <c-alert variant="destructive">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</c-alert>
+{% endif %}
+{% for field in form %}
+    <c-field for="{{ field.id_for_label }}" :label="field.label" :help="field.help_text" :errors="field.errors">{{ field }}</c-field>
+{% endfor %}

@@ -1,0 +1,13 @@
+{% extends "base_app.html" %}
+
+{% block title %}Activity — Django Starter Kit{% endblock %}
+{% block page_title %}Activity{% endblock %}
+
+{% block content %}
+    {# json_script escapes safely; never hand-build JSON into an HTML attribute. #}
+    {{ payload|json_script:"activity-payload" }}
+    <div class="max-w-3xl"
+         data-controller="svelte-bridge"
+         data-svelte-bridge-component-value="dashboard/Activity"
+         data-svelte-bridge-props-id-value="activity-payload"></div>
+{% endblock %}

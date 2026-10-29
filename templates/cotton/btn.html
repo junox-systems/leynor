@@ -1,0 +1,7 @@
+{% comment %}
+    Basecoat button. href renders <a>, otherwise <button>; other attributes
+    (type, name, value, form, hx-boost, data-*) pass straight through.
+    <c-btn variant="ghost" size="sm" type="submit">Remove</c-btn>
+{% endcomment %}
+<c-vars href variant size class />
+{% if href %}<a href="{{ href }}"{% else %}<button{% endif %} class="btn{% if class %} {{ class }}{% endif %}"{% if variant %} data-variant="{{ variant }}"{% endif %}{% if size %} data-size="{{ size }}"{% endif %} {{ attrs }}>{{ slot }}</{% if href %}a{% else %}button{% endif %}>

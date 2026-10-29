@@ -1,0 +1,25 @@
+{% extends "base_app.html" %}
+
+{% block title %}Invitation — Django Starter Kit{% endblock %}
+{% block page_title %}Invitation{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-2xl">
+  <c-card title="Join {{ invitation.organization.name }}" lead>
+    {% if invitation.is_expired %}
+      <c-alert variant="destructive">
+        <p>This invitation has expired. Ask an owner of {{ invitation.organization.name }} to invite you again.</p>
+      </c-alert>
+    {% elif email_matches %}
+      <c-form>
+        <c-btn type="submit">Accept invitation</c-btn>
+      </c-form>
+    {% else %}
+      <c-alert variant="destructive">
+        <p>This invitation was sent to {{ invitation.email }}. Sign in with that address, or add and verify it under
+          <a href="{% url 'account_email' %}" class="underline">Email addresses</a>.</p>
+      </c-alert>
+    {% endif %}
+  </c-card>
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Django Starter Kit — SaaS-ready foundation{% endblock %}
+
+{% block content %}
+<section class="bg-muted/50 flex min-h-[60vh] items-center">
+    <div class="mx-auto max-w-3xl px-4 py-16 text-center">
+        <h1 class="text-5xl font-bold tracking-tight">Django Starter Kit</h1>
+        <p class="text-muted-foreground mx-auto mt-6 max-w-2xl text-xl">
+            A modern, production-ready foundation for SaaS and web products:
+            auth, API, admin, background jobs, S3 storage, email, and observability — out of the box.
+        </p>
+        <div class="mt-10 flex justify-center gap-4">
+            <c-btn href="{% url 'account_signup' %}">Get started</c-btn>
+            <c-btn href="{% url 'admin:index' %}" variant="outline">Admin</c-btn>
+        </div>
+    </div>
+</section>
+
+<section class="mx-auto max-w-5xl px-4 py-16">
+    <h2 class="text-center text-3xl font-bold">What's included</h2>
+    <div class="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <c-card title="Auth & users"><p class="text-muted-foreground text-sm">django-allauth with email-based login, OIDC, social sign-in, and email verification. Custom UUID user model.</p></c-card>
+        <c-card title="REST API"><p class="text-muted-foreground text-sm">django-modern-rest with session auth, msgspec serialization, and OpenAPI schema generation.</p></c-card>
+        <c-card title="Admin"><p class="text-muted-foreground text-sm">Django's built-in admin with import/export, object permissions, and change history.</p></c-card>
+        <c-card title="Background jobs"><p class="text-muted-foreground text-sm">django-q2 workers with Postgres as the queue — send email, build exports, and process long-running work off the request path.</p></c-card>
+        <c-card title="S3 storage"><p class="text-muted-foreground text-sm">django-storages behind one Storage API: local disk, S3, Azure or GCS. Swap with an env var.</p></c-card>
+        <c-card title="Observability"><p class="text-muted-foreground text-sm">Sentry error tracking and OpenTelemetry traces (OTLP) — ready for ClickHouse, Grafana, or any collector.</p></c-card>
+    </div>
+</section>
+
+<section class="bg-muted/50 py-12">
+    <div class="mx-auto max-w-3xl px-4 text-center">
+        <h2 class="text-3xl font-bold">The Svelte logo, rebuilt as particles</h2>
+        <!-- Height coupling: h-[420px] on this wrapper + "class": "h-full" on the component.
+             The canvas is absolutely positioned, so the component root needs a sized parent. -->
+        <div class="mx-auto mt-6 h-[420px] w-full max-w-2xl" id="particle-logo" data-controller="svelte-bridge" data-svelte-bridge-component-value="library/components/canvasui/ParticleObject" data-svelte-bridge-props-value='{"class": "h-full", "src": "/static/svelte-logo.svg", "autoRotate": true, "autoRotateSpeed": 1.5, "size": 1.8, "count": 7000, "sizeVariance": 0.35, "radius": 150, "strength": 1.2, "swirl": 0, "spring": 0.5, "damping": 0.15, "drift": 0, "floatIntensity": 0.8, "rotationIntensity": 1.2, "floatSpeed": 3, "fov": 70, "cameraDistance": 4.4}'></div>
+        <p class="text-muted-foreground mt-3 text-xs">Logo © Svelte Contributors (MIT) · Particle effect by Canvas UI © David Haz (MIT + Commons Clause)</p>
+    </div>
+</section>
+{% endblock %}

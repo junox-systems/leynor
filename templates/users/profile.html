@@ -1,0 +1,66 @@
+{% extends "base_app.html" %}
+{% comment %}
+    Profile page (users.views.ProfileView), four cards top to bottom:
+      1. Summary: avatar, name, read-only account info.
+      2. Edit profile: `form` = users.forms.ProfileForm (first/last name,
+         username, avatar), rendered whole by the fields component. POSTs back
+         to this view; invalid input re-renders here with errors, success
+         redirects with a "Profile updated." toast. Add or change editable
+         fields in ProfileForm.Meta.fields, not here.
+      3. Account settings: allauth's password, email and MFA pages; log out.
+      4. Your data: JSON export and account deletion.
+{% endcomment %}
+
+{% block title %}Profile — Django Starter Kit{% endblock %}
+{% block page_title %}Profile{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-2xl space-y-6">
+  <c-card body_class="border-t">
+    <c-slot name="header">
+      <header class="flex items-center gap-4 p-5">
+        <c-avatar src="{% if user.avatar %}{{ user.avatar_thumbnail.url }}{% endif %}" alt="{{ user.get_full_name|default:user.email }}" initial="{{ user.first_name|slice:':1'|default:user.username|slice:':1' }}" size="lg" />
+        <div class="min-w-0">
+          <h2 class="text-3xl font-bold break-words">{{ user.get_full_name|default:user.email }}</h2>
+          <p class="text-muted-foreground mt-1 text-sm">@{{ user.username }}</p>
+        </div>
+      </header>
+    </c-slot>
+    <dl class="grid gap-3 text-sm sm:grid-cols-2">
+      <div>
+        <dt class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Email</dt>
+        <dd class="mt-0.5">{{ user.email }}</dd>
+      </div>
+      <div>
+        <dt class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Member since</dt>
+        <dd class="mt-0.5">{{ user.date_joined|date:"F j, Y" }}</dd>
+      </div>
+      <div>
+        <dt class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Last login</dt>
+        <dd class="mt-0.5">{{ user.last_login|date:"F j, Y, g:i a" }}</dd>
+      </div>
+    </dl>
+  </c-card>
+
+  <c-card title="Edit profile" description="Change your name, username or photo.">
+    <c-form enctype="multipart/form-data">
+      <c-fields :form="form" />
+      <c-btn type="submit">Save changes</c-btn>
+    </c-form>
+  </c-card>
+
+  <c-card title="Account settings" description="Manage your password, email addresses and two-factor authentication." body_class="flex flex-wrap gap-2">
+    <c-btn href="{% url 'account_change_password' %}">Change Password</c-btn>
+    <c-btn href="{% url 'account_email' %}" variant="secondary">Email Addresses</c-btn>
+    <c-btn href="{% url 'mfa_index' %}" variant="secondary">Two-factor</c-btn>
+    <c-form action="{% url 'account_logout' %}">
+      <c-btn type="submit" variant="destructive">Log out</c-btn>
+    </c-form>
+  </c-card>
+
+  <c-card title="Your data" description="Download a copy of your data, or delete your account." body_class="flex flex-wrap gap-2">
+    <c-btn href="{% url 'export_data' %}" variant="secondary" hx-boost="false">Download my data</c-btn>
+    <c-btn href="{% url 'delete_account' %}" variant="destructive">Delete account</c-btn>
+  </c-card>
+</div>
+{% endblock %}
