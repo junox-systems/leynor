@@ -1,0 +1,3 @@
+{# variant="destructive" announces immediately (role=alert); anything else is polite (role=status). #}
+<c-vars variant class />
+<div class="alert{% if class %} {{ class }}{% endif %}"{% if variant %} data-variant="{{ variant }}"{% endif %} role="{% if variant == 'destructive' %}alert{% else %}status{% endif %}" {{ attrs }}>{{ slot }}</div>

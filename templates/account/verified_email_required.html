@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+<c-center class="max-w-md">
+  <c-card title="Verify Your Email Address" description="We need to confirm you are who you claim to be." lead>
+    <p>We have sent an email to you for verification. Please click on the link inside that email. If you do not see the verification email in your main inbox, check your spam folder. Otherwise contact us if you do not receive it within a few minutes.</p>
+    <p class="mt-4"><strong>Note:</strong> you can still <a href="{% url 'account_email' %}" class="text-primary underline underline-offset-4">change your email address</a>.</p>
+  </c-card>
+</c-center>
+{% endblock %}

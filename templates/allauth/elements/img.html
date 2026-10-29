@@ -1,0 +1,4 @@
+{% comment %} djlint:off {% endcomment %}{% load allauth %}{% comment %}
+    QR codes are black-on-transparent SVGs: invisible on the dark theme. Keep them
+    dark-on-white in both themes — many scanners reject inverted codes.
+{% endcomment %}<img src="{{ attrs.src }}"{% if attrs.alt %} alt="{{ attrs.alt }}"{% endif %}{% if "qr" in attrs.tags %} class="mb-4 size-48 rounded-md bg-white p-3"{% endif %}>

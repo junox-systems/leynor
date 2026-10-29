@@ -1,0 +1,5 @@
+{# Full-height centered column for logged-out pages (auth flows). Pass width via class, e.g. class="max-w-md". #}
+<c-vars class />
+<div class="bg-muted/50 flex min-h-dvh items-center justify-center px-4 py-12">
+    <div class="w-full {{ class|default:'max-w-sm' }}">{{ slot }}</div>
+</div>

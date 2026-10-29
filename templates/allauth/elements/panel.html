@@ -1,0 +1,6 @@
+{% load allauth %}
+<c-card class="mb-6 max-w-2xl" body_class="space-y-2 text-sm">
+    <c-slot name="title">{% slot title %}{% endslot %}</c-slot>
+    {% slot body %}{% endslot %}
+    {% if slots.actions %}<c-slot name="actions">{% for action in slots.actions %}{{ action }}{% endfor %}</c-slot>{% endif %}
+</c-card>

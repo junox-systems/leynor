@@ -1,0 +1,23 @@
+/*
+    Tell Tailwind where to find your HTML templates and JS files.
+    Paths are relative to this CSS file.
+*/
+@source "../js/**/*.{js,ts}";
+@source "../js/**/*.svelte";
+@source "../../../templates/**/*.html";
+
+/* Import the core Tailwind v4 engine */
+@import "tailwindcss";
+
+/* Load the Tailwind v4 plugins */
+@plugin "@tailwindcss/typography";
+
+/* Basecoat styleless base: tokens (light + .dark), semantic utilities, component structure */
+@import "basecoat-css/base";
+
+/* Variable fonts: Manrope (body) + Space Grotesk (headings) */
+@import "@fontsource-variable/manrope";
+@import "@fontsource-variable/space-grotesk";
+
+/* Per-site style pack — fork of `basecoat-css/styles/vega`, customize per website */
+@import "./site.css";

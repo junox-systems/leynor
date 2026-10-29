@@ -58,3 +58,6 @@ out.mp4
 
 # git worktrees used for isolated agent work
 .worktrees/
+
+# pipeline artifacts (private, never in git)
+var/

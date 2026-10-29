@@ -1,0 +1,6 @@
+{# POST form with the CSRF token built in. action, id, data-* pass through. #}
+<c-vars class />
+<form method="post" class="{{ class|default:'space-y-4' }}" {{ attrs }}>
+    {% csrf_token %}
+    {{ slot }}
+</form>

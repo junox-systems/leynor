@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<c-center>
+  <c-card title="Create an account" description="A private workspace for your reels." lead>
+    <c-form>
+      <c-fields :form="form" />
+      <c-btn class="w-full">Sign Up</c-btn>
+    </c-form>
+  </c-card>
+  <p class="text-muted-foreground mt-4 text-center text-sm">
+    Already have an account? <a href="{% url 'account_login' %}" class="text-foreground underline-offset-4 hover:underline">Login</a>
+  </p>
+</c-center>
+{% endblock %}

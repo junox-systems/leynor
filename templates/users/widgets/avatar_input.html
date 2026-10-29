@@ -1,0 +1,25 @@
+{% comment %}
+    users.forms.AvatarInput: replaces Django's "Currently / Clear / Change" text.
+    Shows the current avatar (or initials); the avatar-preview controller opens
+    the hidden file input and previews a picked file before saving. Rendered
+    through FORM_RENDERER = TemplatesSetting, so Cotton components work here.
+    widget.user is the user being edited (set by ProfileForm). Its stored avatar,
+    not widget.is_initial, drives the preview: a rejected upload re-renders the
+    form and must still show the current photo.
+{% endcomment %}
+{% with user=widget.user %}
+<div class="flex items-center gap-4" data-controller="avatar-preview"
+     data-avatar-preview-initial-value="{{ user.first_name|slice:':1'|default:user.username|slice:':1'|upper }}">
+    <c-avatar size="lg" src="{% if user.avatar %}{{ user.avatar_thumbnail.url }}{% endif %}" alt="" initial="{{ user.first_name|slice:':1'|default:user.username|slice:':1' }}" data-avatar-preview-target="avatar" />
+    <div class="flex flex-wrap items-center gap-3">
+        <c-btn type="button" variant="outline" size="sm" data-action="avatar-preview#pick">{% if user.avatar %}Change photo{% else %}Upload photo{% endif %}</c-btn>
+        <input type="{{ widget.type }}" name="{{ widget.name }}" class="sr-only" tabindex="-1" data-avatar-preview-target="input" data-action="avatar-preview#preview"{% include "django/forms/widgets/attrs.html" %}>
+        {% if user.avatar and not widget.required %}
+        <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" class="input" name="{{ widget.checkbox_name }}" id="{{ widget.checkbox_id }}" data-avatar-preview-target="clear" data-action="avatar-preview#toggleClear"{% if widget.attrs.disabled %} disabled{% endif %}>
+            Remove photo
+        </label>
+        {% endif %}
+    </div>
+</div>
+{% endwith %}
