@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load account %}
+
+{% block content %}
+<c-center class="max-w-md">
+  <c-card title="Confirm Email Address" lead>
+    {% if confirmation %}
+      {% user_display confirmation.email_address.user as user_display %}
+      {% if can_confirm %}
+        <p>Please confirm that <a href="mailto:{{ confirmation.email_address.email }}" class="text-primary underline underline-offset-4">{{ confirmation.email_address.email }}</a> is an email address for user <strong>{{ user_display }}</strong>.</p>
+        <c-form action="{% url 'account_confirm_email' confirmation.key %}" class="mt-6">
+          {{ redirect_field }}
+          <c-btn class="w-full" type="submit">Confirm</c-btn>
+        </c-form>
+      {% else %}
+        <p>Unable to confirm {{ confirmation.email_address.email }} because it is already confirmed by a different account.</p>
+      {% endif %}
+    {% else %}
+      <p>This email confirmation link expired or is invalid. Please <a href="{% url 'account_email' %}" class="text-primary underline underline-offset-4">issue a new email confirmation request</a>.</p>
+    {% endif %}
+  </c-card>
+</c-center>
+{% endblock %}

@@ -1,0 +1,7 @@
+# pnpm 11+ settings (it no longer reads package.json#pnpm).
+overrides:
+  fflate: ">=0.7.5"
+  esbuild: ">=0.28.1"
+
+allowBuilds:
+  protobufjs: true

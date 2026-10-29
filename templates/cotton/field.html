@@ -1,0 +1,11 @@
+{% comment %}
+    One labelled form control. The control goes in the slot.
+    <c-field for="confirm" label="Confirm"><input id="confirm" name="confirm"></c-field>
+{% endcomment %}
+<c-vars for label help errors />
+<div role="group" class="field gap-1.5"{% if errors %} data-invalid{% endif %}>
+    <label for="{{ for }}">{{ label }}</label>
+    {{ slot }}
+    {% if help %}<p class="text-muted-foreground text-sm">{{ help }}</p>{% endif %}
+    {% if errors %}<p class="text-destructive text-sm" role="alert">{{ errors }}</p>{% endif %}
+</div>

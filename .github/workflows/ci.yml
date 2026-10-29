@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up mise
+      uses: jdx/mise-action@v2
+    - name: Install dependencies
+      run: just install
+    - name: Run lint
+      run: just lint
+    - name: Deployment checks
+      run: just check-deploy
+    - name: Run tests
+      run: just test
+    - name: Build frontend
+      run: just vite-build
+    - name: Check built assets
+      run: just test-assets
+    - name: Build Docker image
+      run: just docker-build
+    - name: Smoke-test production image
+      run: just smoke-prod
+    # - name: Deploy
+    #   run: just deploy

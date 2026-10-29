@@ -1,0 +1,72 @@
+{% extends "base_app.html" %}
+
+{% block title %}{{ org.name }} — Reel Playbook{% endblock %}
+{% block page_title %}{{ org.name }}{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-2xl space-y-6">
+  <c-card title="{{ org.name }}" description="Members" lead>
+    <ul class="divide-y">
+      {% for row in members %}{% with m=row.m %}
+        <li class="flex flex-wrap items-center justify-between gap-3 py-3">
+          <span class="flex flex-wrap items-center gap-2 text-sm">
+            {{ m.user.email }}{% if m == membership %} (you){% endif %}
+            {% for role in m.roles.all %}
+              <c-badge variant="{% if role.name == 'owner' %}primary{% else %}secondary{% endif %}">{{ role.name|capfirst }}</c-badge>
+            {% empty %}
+              <c-badge variant="outline">No role</c-badge>
+            {% endfor %}
+          </span>
+          <span class="flex flex-wrap items-center gap-2">
+            {% if row.manageable %}
+              {% for role in assignable_roles %}
+                <c-form action="{% url 'membership_role' org.pk m.pk %}" class="inline">
+                  <c-btn type="submit" name="role" value="{{ role.pk }}" variant="ghost" size="sm">{% if role in m.roles.all %}Revoke {{ role.name }}{% else %}Grant {{ role.name }}{% endif %}</c-btn>
+                </c-form>
+              {% endfor %}
+            {% endif %}
+            {% if m == membership or row.manageable %}
+              <c-form action="{% url 'membership_remove' org.pk m.pk %}" class="inline">
+                <c-btn type="submit" variant="ghost" size="sm">{% if m == membership %}Leave{% else %}Remove{% endif %}</c-btn>
+              </c-form>
+            {% endif %}
+          </span>
+        </li>
+      {% endwith %}{% endfor %}
+    </ul>
+  </c-card>
+
+  {% if can_invite %}
+    <c-card title="Invite someone" description="They get an email link and join after signing in with that address." body_class="space-y-4">
+      <c-form>
+        <c-fields :form="form" />
+        <c-btn type="submit">Send invitation</c-btn>
+      </c-form>
+      {% if invitations %}
+        <ul class="divide-y border-t">
+          {% for invitation in invitations %}
+            <li class="flex items-center justify-between gap-3 py-3">
+              <span class="text-sm">{{ invitation.email }} {% if invitation.is_expired %}<c-badge variant="destructive">Expired</c-badge>{% else %}<c-badge variant="outline">Pending</c-badge>{% endif %}</span>
+              <c-form action="{% url 'invitation_revoke' org.pk invitation.pk %}">
+                <c-btn type="submit" variant="ghost" size="sm">Revoke</c-btn>
+              </c-form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </c-card>
+  {% endif %}
+
+  {% if can_delete %}
+    <c-card title="Delete organization" description="Removes the organization, its memberships and pending invitations. You'll be asked to confirm it's you.">
+      <c-form action="{% url 'org_delete' org.pk %}">
+        <c-btn type="submit" variant="destructive">Delete {{ org.name }}</c-btn>
+      </c-form>
+    </c-card>
+  {% endif %}
+
+  <p class="text-muted-foreground text-sm">
+    <a href="{% url 'orgs' %}" class="underline-offset-4 hover:underline">All organizations</a>
+  </p>
+</div>
+{% endblock %}

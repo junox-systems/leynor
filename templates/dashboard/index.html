@@ -1,0 +1,15 @@
+{% extends "base_app.html" %}
+
+{% block title %}Dashboard — Reel Playbook{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+    {# Lives here, not the app bar: it overflowed the top bar on phones. #}
+    <c-org-switcher action="{% url 'org_switch' %}" :current="org_switcher.current" :organizations="org_switcher.organizations" class="mb-6" />
+    {# One payload node -> props of the Svelte root. json_script escapes safely; #}
+    {# never hand-build JSON into an HTML attribute. #}
+    {{ payload|json_script:"dashboard-payload" }}
+    <div data-controller="svelte-bridge"
+         data-svelte-bridge-component-value="dashboard/Dashboard"
+         data-svelte-bridge-props-id-value="dashboard-payload"></div>
+{% endblock %}

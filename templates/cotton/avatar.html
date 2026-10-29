@@ -1,0 +1,12 @@
+{% comment %}
+    Avatar with image or initials fallback. size: sm | lg (default medium).
+    <c-avatar src="..." alt="..." initial="AL" size="lg" />
+{% endcomment %}
+<c-vars src alt initial size class />
+<div class="avatar{% if class %} {{ class }}{% endif %}"{% if size %} data-size="{{ size }}"{% endif %} {{ attrs }}>
+    {% if src %}
+        <img src="{{ src }}" alt="{{ alt }}">
+    {% else %}
+        <span>{{ initial|upper }}</span>
+    {% endif %}
+</div>

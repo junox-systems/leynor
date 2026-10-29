@@ -1,0 +1,22 @@
+{% comment %}
+    HTML wrapper for every outgoing email. The plain-text body is the source of
+    truth; this only formats it. Inline styles only: email clients drop <style>
+    and never see Tailwind.
+{% endcomment %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ subject }}</title>
+</head>
+<body style="margin:0;padding:24px 12px;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#18181b;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+    <tr>
+      <td style="padding:24px 28px;font-size:15px;line-height:1.6;">
+        <h1 style="margin:0 0 16px;font-size:18px;font-weight:600;">{{ subject }}</h1>
+        {{ body|urlize|linebreaks }}
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

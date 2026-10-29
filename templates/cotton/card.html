@@ -1,0 +1,24 @@
+{% comment %}
+    Basecoat card: header (title + description) / section (slot) / footer (actions slot).
+    lead = page-level heading (h2, large); otherwise a section heading (h3).
+    A named "header" slot replaces the generated header entirely.
+    <c-card title="Members" description="..." body_class="space-y-4">...</c-card>
+{% endcomment %}
+<c-vars title description lead class body_class />
+<div class="card{% if class %} {{ class }}{% endif %}" {{ attrs }}>
+    {% if header %}
+        {{ header }}
+    {% elif title %}
+        <header class="p-5">
+            {% if lead %}
+                <h2 class="text-3xl font-bold">{{ title }}</h2>
+                {% if description %}<p class="text-muted-foreground mt-2 text-sm">{{ description }}</p>{% endif %}
+            {% else %}
+                <h3 class="text-lg font-bold">{{ title }}</h3>
+                {% if description %}<p class="text-muted-foreground mt-1 text-sm">{{ description }}</p>{% endif %}
+            {% endif %}
+        </header>
+    {% endif %}
+    <section class="p-5{% if body_class %} {{ body_class }}{% endif %}">{{ slot }}</section>
+    {% if actions %}<footer class="flex flex-wrap gap-2 p-5">{{ actions }}</footer>{% endif %}
+</div>

@@ -1,0 +1,29 @@
+{% comment %}
+    Django messages as Basecoat toasts (basecoat-css/toast JS). Rendered once,
+    at the end of base.html's body, for every layout.
+
+    Toasts sit in a template; the toaster controller appends them after load so
+    screen readers announce them (live regions present at load stay silent).
+    Server markup only: Basecoat's toaster.toast(config) does not escape.
+    Warnings and errors stay until dismissed; the rest time out (pause on hover).
+{% endcomment %}
+<div id="toaster" class="toaster" data-controller="toaster">
+    {% if messages %}
+    <template data-toaster-target="messages">
+        {% for message in messages %}
+            {% with category=message.level_tag|default:"info" %}
+            <div class="toast" role="{% if category == 'error' %}alert{% else %}status{% endif %}" aria-atomic="true"
+                 data-category="{% if category == 'debug' %}info{% else %}{{ category }}{% endif %}"{% if category == 'error' or category == 'warning' %} data-duration="-1"{% endif %}>
+                <div class="toast-content">
+                    {% if category == 'success' %}<c-icon.circle-check />{% elif category == 'error' %}<c-icon.circle-x />{% elif category == 'warning' %}<c-icon.triangle-alert />{% else %}<c-icon.info />{% endif %}
+                    <section><h2>{{ message }}</h2></section>
+                    {% if category == 'error' or category == 'warning' %}
+                    <footer><c-btn type="button" variant="outline" size="sm" data-toast-cancel>Dismiss</c-btn></footer>
+                    {% endif %}
+                </div>
+            </div>
+            {% endwith %}
+        {% endfor %}
+    </template>
+    {% endif %}
+</div>
