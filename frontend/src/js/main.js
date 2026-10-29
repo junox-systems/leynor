@@ -47,7 +47,7 @@ const hyperdxUrl = import.meta.env.VITE_HYPERDX_URL;
 if (hyperdxUrl) {
   const initConfig = {
     service:
-      import.meta.env.VITE_HYPERDX_SERVICE || "reel-playbook-frontend",
+      import.meta.env.VITE_HYPERDX_SERVICE || "leynor-frontend",
     url: hyperdxUrl,
     consoleCapture: true,
     tracePropagationTargets: [/\/api\/v1\//i],

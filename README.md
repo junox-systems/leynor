@@ -1,6 +1,6 @@
-# Reel Playbook
+# Leynor
 
-A private Django app for one gated route from an idea to a rendered 9:16 Reel. Built on the leynor Django 5.2 starter kit: organizations, RBAC, DMR, django-q2, Cotton and htmx.
+A private Django app for one gated route from an idea to a rendered 9:16 Reel. Django 5.2, organizations with RBAC, DMR, django-q2, Cotton and htmx.
 
 ## What's Inside
 

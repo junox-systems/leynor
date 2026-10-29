@@ -112,7 +112,7 @@ from dmr.openapi import OpenAPIConfig  # noqa: E402
 
 DMR_SETTINGS: dict = {
     Settings.openapi_config: OpenAPIConfig(
-        title="Reel Playbook API",
+        title="Leynor API",
         version="0.1.0",
     ),
 }
@@ -233,13 +233,13 @@ MEDIA_ROOT = BASE_DIR / "media"
 # ------------------------------------------------------------------------------
 # Artifacts never go through MEDIA_URL: they are private and served by an
 # authenticated view. Local disk now, private bucket later, same Store contract.
-REEL_ARTIFACT_ROOT = Path(
-    env("REEL_ARTIFACT_ROOT", default=str(BASE_DIR / "var" / "artifacts"))
+LEYNOR_ARTIFACT_ROOT = Path(
+    env("LEYNOR_ARTIFACT_ROOT", default=str(BASE_DIR / "var" / "artifacts"))
 )
-REEL_LLM_MODEL = env("REEL_LLM_MODEL", default="")
-REEL_WHISPER_SIZE = env("REEL_WHISPER_SIZE", default="base.en")
-REEL_RENDER_QUALITY = env("REEL_RENDER_QUALITY", default="delivery")
-REEL_MIN_FREE_GB = env.int("REEL_MIN_FREE_GB", default=10)
+LEYNOR_LLM_MODEL = env("LEYNOR_LLM_MODEL", default="")
+LEYNOR_WHISPER_SIZE = env("LEYNOR_WHISPER_SIZE", default="base.en")
+LEYNOR_RENDER_QUALITY = env("LEYNOR_RENDER_QUALITY", default="delivery")
+LEYNOR_MIN_FREE_GB = env.int("LEYNOR_MIN_FREE_GB", default=10)
 
 # S3 Storage Settings
 # ------------------------------------------------------------------------------
@@ -352,7 +352,7 @@ CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 # The ORM is the broker: tasks queue in Postgres, no Redis. Run workers with
 # `python manage.py qcluster`; schedules live in the admin (django_q.Schedule).
 Q_CLUSTER = {
-    "name": env("Q_CLUSTER_NAME", default="reel-default"),
+    "name": env("Q_CLUSTER_NAME", default="leynor-default"),
     "orm": "default",
     "workers": env.int("Q_CLUSTER_WORKERS", default=2),
     "timeout": env.int("Q_CLUSTER_TIMEOUT", default=1500),  # hard limit per task

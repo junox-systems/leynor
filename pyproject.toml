@@ -1,5 +1,5 @@
 [project]
-name = "reel-playbook"
+name = "leynor"
 version = "0.1.0"
 description = "One gated route from an idea to a rendered 9:16 Reel, as a Django app"
 readme = "README.md"

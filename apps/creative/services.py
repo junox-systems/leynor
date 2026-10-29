@@ -18,5 +18,5 @@ def draft(step: Step, brief: str = "") -> DraftResult:
     spec = resolve(step)
     if not spec.llm:
         raise NotADraftingStep(f"{spec.id} is not a drafting step")
-    agents = build_agents(settings.REEL_LLM_MODEL, read(spec, optional=True))
+    agents = build_agents(settings.LEYNOR_LLM_MODEL, read(spec, optional=True))
     return run_draft(spec.id, brief or (spec.prompt or ""), agents.deps())

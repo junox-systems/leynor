@@ -1442,6 +1442,107 @@ wheels = [
 ]
 
 [[package]]
+name = "leynor"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "boto3" },
+    { name = "dj-control-room", extra = ["cache", "signals", "urls"] },
+    { name = "django" },
+    { name = "django-allauth", extra = ["idp-oidc", "mfa", "socialaccount"] },
+    { name = "django-anymail" },
+    { name = "django-auditlog" },
+    { name = "django-constance" },
+    { name = "django-cors-headers" },
+    { name = "django-cotton" },
+    { name = "django-environ" },
+    { name = "django-imagekit" },
+    { name = "django-import-export" },
+    { name = "django-modern-rest", extra = ["jwt", "msgspec", "openapi"] },
+    { name = "django-paradedb" },
+    { name = "django-q2" },
+    { name = "django-storages" },
+    { name = "django-vite" },
+    { name = "granian", extra = ["uvloop"] },
+    { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-instrumentation-asgi" },
+    { name = "opentelemetry-instrumentation-psycopg" },
+    { name = "opentelemetry-sdk" },
+    { name = "pillow" },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "pydantic" },
+    { name = "pydantic-ai" },
+    { name = "sentry-sdk" },
+    { name = "whitenoise" },
+]
+
+[package.optional-dependencies]
+heavy = [
+    { name = "faster-whisper" },
+    { name = "pocket-tts" },
+    { name = "torch", version = "2.15.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.15.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "django-debug-toolbar" },
+    { name = "django-stubs" },
+    { name = "pytest" },
+    { name = "pytest-django" },
+    { name = "ruff" },
+]
+e2e = [
+    { name = "pytest-playwright" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "boto3", specifier = ">=1.30.0" },
+    { name = "dj-control-room", extras = ["cache", "urls", "signals"], specifier = ">=1.8.1" },
+    { name = "django", specifier = ">=5.2.18,<5.3" },
+    { name = "django-allauth", extras = ["idp-oidc", "mfa", "socialaccount"], specifier = ">=65.11.0" },
+    { name = "django-anymail", specifier = ">=10.0" },
+    { name = "django-auditlog", specifier = ">=3.0.0" },
+    { name = "django-constance", specifier = ">=4.3.5" },
+    { name = "django-cors-headers", specifier = ">=4.3.0" },
+    { name = "django-cotton", specifier = ">=2.8.0" },
+    { name = "django-environ", specifier = ">=0.11.2" },
+    { name = "django-imagekit", specifier = ">=5.0.0" },
+    { name = "django-import-export", specifier = ">=4.4.1" },
+    { name = "django-modern-rest", extras = ["jwt", "msgspec", "openapi"], specifier = ">=0.16.0" },
+    { name = "django-paradedb", specifier = ">=0.15.0" },
+    { name = "django-q2", specifier = ">=1.11.1" },
+    { name = "django-storages", specifier = ">=1.14.0" },
+    { name = "django-vite", specifier = ">=3.1.0" },
+    { name = "faster-whisper", marker = "extra == 'heavy'", specifier = ">=1.1" },
+    { name = "granian", extras = ["uvloop"], specifier = ">=2.8.1" },
+    { name = "opentelemetry-exporter-otlp", specifier = ">=1.36.0" },
+    { name = "opentelemetry-instrumentation-asgi", specifier = ">=0.62b1" },
+    { name = "opentelemetry-instrumentation-psycopg", specifier = ">=0.57b0" },
+    { name = "opentelemetry-sdk", specifier = ">=1.36.0" },
+    { name = "pillow", specifier = ">=13.0.0" },
+    { name = "pocket-tts", marker = "extra == 'heavy'", specifier = ">=4.0.1" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2.9" },
+    { name = "pydantic", specifier = ">=2.11" },
+    { name = "pydantic-ai", specifier = ">=2.60,<3" },
+    { name = "sentry-sdk", specifier = ">=1.40.0" },
+    { name = "torch", marker = "extra == 'heavy'", specifier = ">=2.6", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "whitenoise", specifier = ">=6.6.0" },
+]
+provides-extras = ["heavy"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "django-debug-toolbar", specifier = ">=8.0.0" },
+    { name = "django-stubs", specifier = ">=5.2.9,<5.3" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "pytest-django", specifier = ">=4.14.0" },
+    { name = "ruff", specifier = "==0.17.1" },
+]
+e2e = [{ name = "pytest-playwright", specifier = ">=0.10.0" }]
+
+[[package]]
 name = "logfire"
 version = "5.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2689,107 +2790,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/8f/b2/7fc2931bfae0af02d
 wheels = [
     { url = "https://files.pythonhosted.org/packages/dd/b8/d2d6d731733f51684bbf76bf34dab3b70a9148e8f2cef2bb544fccec681a/qrcode-8.2-py3-none-any.whl", hash = "sha256:16e64e0716c14960108e85d853062c9e8bba5ca8252c0b4d0231b9df4060ff4f", size = 45986, upload-time = "2025-05-01T15:44:22.781Z" },
 ]
-
-[[package]]
-name = "reel-playbook"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "boto3" },
-    { name = "dj-control-room", extra = ["cache", "signals", "urls"] },
-    { name = "django" },
-    { name = "django-allauth", extra = ["idp-oidc", "mfa", "socialaccount"] },
-    { name = "django-anymail" },
-    { name = "django-auditlog" },
-    { name = "django-constance" },
-    { name = "django-cors-headers" },
-    { name = "django-cotton" },
-    { name = "django-environ" },
-    { name = "django-imagekit" },
-    { name = "django-import-export" },
-    { name = "django-modern-rest", extra = ["jwt", "msgspec", "openapi"] },
-    { name = "django-paradedb" },
-    { name = "django-q2" },
-    { name = "django-storages" },
-    { name = "django-vite" },
-    { name = "granian", extra = ["uvloop"] },
-    { name = "opentelemetry-exporter-otlp" },
-    { name = "opentelemetry-instrumentation-asgi" },
-    { name = "opentelemetry-instrumentation-psycopg" },
-    { name = "opentelemetry-sdk" },
-    { name = "pillow" },
-    { name = "psycopg", extra = ["binary"] },
-    { name = "pydantic" },
-    { name = "pydantic-ai" },
-    { name = "sentry-sdk" },
-    { name = "whitenoise" },
-]
-
-[package.optional-dependencies]
-heavy = [
-    { name = "faster-whisper" },
-    { name = "pocket-tts" },
-    { name = "torch", version = "2.15.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
-    { name = "torch", version = "2.15.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "django-debug-toolbar" },
-    { name = "django-stubs" },
-    { name = "pytest" },
-    { name = "pytest-django" },
-    { name = "ruff" },
-]
-e2e = [
-    { name = "pytest-playwright" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "boto3", specifier = ">=1.30.0" },
-    { name = "dj-control-room", extras = ["cache", "urls", "signals"], specifier = ">=1.8.1" },
-    { name = "django", specifier = ">=5.2.18,<5.3" },
-    { name = "django-allauth", extras = ["idp-oidc", "mfa", "socialaccount"], specifier = ">=65.11.0" },
-    { name = "django-anymail", specifier = ">=10.0" },
-    { name = "django-auditlog", specifier = ">=3.0.0" },
-    { name = "django-constance", specifier = ">=4.3.5" },
-    { name = "django-cors-headers", specifier = ">=4.3.0" },
-    { name = "django-cotton", specifier = ">=2.8.0" },
-    { name = "django-environ", specifier = ">=0.11.2" },
-    { name = "django-imagekit", specifier = ">=5.0.0" },
-    { name = "django-import-export", specifier = ">=4.4.1" },
-    { name = "django-modern-rest", extras = ["jwt", "msgspec", "openapi"], specifier = ">=0.16.0" },
-    { name = "django-paradedb", specifier = ">=0.15.0" },
-    { name = "django-q2", specifier = ">=1.11.1" },
-    { name = "django-storages", specifier = ">=1.14.0" },
-    { name = "django-vite", specifier = ">=3.1.0" },
-    { name = "faster-whisper", marker = "extra == 'heavy'", specifier = ">=1.1" },
-    { name = "granian", extras = ["uvloop"], specifier = ">=2.8.1" },
-    { name = "opentelemetry-exporter-otlp", specifier = ">=1.36.0" },
-    { name = "opentelemetry-instrumentation-asgi", specifier = ">=0.62b1" },
-    { name = "opentelemetry-instrumentation-psycopg", specifier = ">=0.57b0" },
-    { name = "opentelemetry-sdk", specifier = ">=1.36.0" },
-    { name = "pillow", specifier = ">=13.0.0" },
-    { name = "pocket-tts", marker = "extra == 'heavy'", specifier = ">=4.0.1" },
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.2.9" },
-    { name = "pydantic", specifier = ">=2.11" },
-    { name = "pydantic-ai", specifier = ">=2.60,<3" },
-    { name = "sentry-sdk", specifier = ">=1.40.0" },
-    { name = "torch", marker = "extra == 'heavy'", specifier = ">=2.6", index = "https://download.pytorch.org/whl/cpu" },
-    { name = "whitenoise", specifier = ">=6.6.0" },
-]
-provides-extras = ["heavy"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "django-debug-toolbar", specifier = ">=8.0.0" },
-    { name = "django-stubs", specifier = ">=5.2.9,<5.3" },
-    { name = "pytest", specifier = ">=9.1.1" },
-    { name = "pytest-django", specifier = ">=4.14.0" },
-    { name = "ruff", specifier = "==0.17.1" },
-]
-e2e = [{ name = "pytest-playwright", specifier = ">=0.10.0" }]
 
 [[package]]
 name = "referencing"

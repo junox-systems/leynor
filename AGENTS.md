@@ -1,6 +1,6 @@
-# AGENTS.md — Reel Playbook
+# AGENTS.md — Leynor
 
-Reel Playbook: a private Django app that takes an idea to a rendered 9:16 Reel. Built on the Django 5.2 starter kit (leynor). Modular monolith. Single source of truth for architecture + conventions.
+Leynor: a private Django app that takes an idea to a rendered 9:16 Reel. Modular monolith. Single source of truth for architecture + conventions.
 
 ## Principles
 

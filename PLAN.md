@@ -1,4 +1,4 @@
-# PLAN: Reel Playbook as a private Django app
+# PLAN: Leynor as a private Django app
 
 Status: phases 0 to 2 done on branch `feat/django-app`. Phases 3 to 8 are
 still plan only.
@@ -8,7 +8,7 @@ Verified so far:
   (torch 2.15.0+cpu, faster-whisper, pocket-tts, ffmpeg 7.1.5, Chromium 156,
   HyperFrames 0.8.188).
 - dev stack boots: `/healthz/` 200, `/` redirects to login, `/accounts/login/`
-  200, `/dashboard/` 200, admin 200, qcluster runs as cluster `reel-default`.
+  200, `/dashboard/` 200, admin 200, qcluster runs as cluster `leynor-default`.
 - 275 tests pass, 1 skipped; ruff clean. Only pyflakes-level rules are enabled.
 - the engine package, its `db/` shim, the CLI and `build()` are deleted.
 
@@ -124,8 +124,8 @@ Chromium. Enforced in three places:
 3. `tests/test_web_boot.py` imports `config.urls` and asserts `torch` and
    `faster_whisper` are absent from `sys.modules`. That test is the boundary.
 
-Settings never import a media module. `REEL_LLM_MODEL`, `REEL_WHISPER_SIZE`,
-`REEL_ARTIFACT_ROOT`, and `REEL_RENDER_QUALITY` are plain values.
+Settings never import a media module. `LEYNOR_LLM_MODEL`, `LEYNOR_WHISPER_SIZE`,
+`LEYNOR_ARTIFACT_ROOT`, and `LEYNOR_RENDER_QUALITY` are plain values.
 
 ## Target layout
 
@@ -330,7 +330,7 @@ Kept as is, moved into `creative/`:
 
 Changes for the app:
 
-- The model string comes from `settings.REEL_LLM_MODEL` and is passed into
+- The model string comes from `settings.LEYNOR_LLM_MODEL` and is passed into
   `build_agents(model=...)`. No env reads inside the app modules.
 - Drafting runs inside the run task, called through `creative/services.py`.
   Result is saved as `Artifact` text and as the step's creative row. No agent
@@ -441,7 +441,7 @@ behaviour (design, compose, timeline, encode) and no persisted state of its own.
 | File | Change |
 |---|---|
 | `config/settings/base.py` `INSTALLED_APPS` | add the five apps after `apps.users`, before `apps.api` |
-| `config/settings/base.py` | new `REEL_*` block and env-driven `Q_CLUSTER` |
+| `config/settings/base.py` | new `LEYNOR_*` block and env-driven `Q_CLUSTER` |
 | `config/urls.py` | add `projects/` and `runs/` includes, drop the sitemap path |
 | `apps/pages/views.py` | `home` becomes a redirect: dashboard when authed, login otherwise |
 | `apps/pages/urls.py` | keep `robots.txt` only; delete terms, privacy, sitemap |
@@ -449,7 +449,7 @@ behaviour (design, compose, timeline, encode) and no persisted state of its own.
 | `apps/runs/models.py` | `Artifact.file = FileField(storage=artifact_storage(), upload_to=artifact_path)` |
 | `apps/orgs/models.py` `Organization.Meta.permissions` | add `run_project`, `approve_gate`, `view_artifact` |
 | `apps/orgs/migrations/0003_reel_permissions.py` | grant the three to the admin default role |
-| `pyproject.toml` | rename to `reel-playbook`; base deps `pydantic`, `pydantic-ai`; `heavy` extra; delete `[project.scripts]` |
+| `pyproject.toml` | rename to `leynor`; base deps `pydantic`, `pydantic-ai`; `heavy` extra; delete `[project.scripts]` |
 | `mise.toml`, `frontend/package.json`, `README.md`, `.env.example` | rename and add the REEL keys |
 | `dev/Dockerfile.heavy` | new: ffmpeg, Node, Chromium, HyperFrames, torch CPU, faster-whisper, pocket-tts |
 | `dev/docker-compose.dev.yml` | new `heavy` service, same bind mount, cluster env |
@@ -487,14 +487,14 @@ path("runs/", include("apps.runs.urls")),
 `config/settings/base.py`, the new block:
 
 ```python
-REEL_ARTIFACT_ROOT = Path(env("REEL_ARTIFACT_ROOT", default=str(BASE_DIR / "var" / "artifacts")))
-REEL_LLM_MODEL = env("REEL_LLM_MODEL", default="")
-REEL_WHISPER_SIZE = env("REEL_WHISPER_SIZE", default="base.en")
-REEL_RENDER_QUALITY = env("REEL_RENDER_QUALITY", default="delivery")
-REEL_MIN_FREE_GB = env.int("REEL_MIN_FREE_GB", default=10)
+LEYNOR_ARTIFACT_ROOT = Path(env("LEYNOR_ARTIFACT_ROOT", default=str(BASE_DIR / "var" / "artifacts")))
+LEYNOR_LLM_MODEL = env("LEYNOR_LLM_MODEL", default="")
+LEYNOR_WHISPER_SIZE = env("LEYNOR_WHISPER_SIZE", default="base.en")
+LEYNOR_RENDER_QUALITY = env("LEYNOR_RENDER_QUALITY", default="delivery")
+LEYNOR_MIN_FREE_GB = env.int("LEYNOR_MIN_FREE_GB", default=10)
 
 Q_CLUSTER = {
-    "name": env("Q_CLUSTER_NAME", default="reel-default"),
+    "name": env("Q_CLUSTER_NAME", default="leynor-default"),
     "orm": "default",
     "workers": env.int("Q_CLUSTER_WORKERS", default=2),
     "timeout": env.int("Q_CLUSTER_TIMEOUT", default=1500),
@@ -504,7 +504,7 @@ Q_CLUSTER = {
 }
 ```
 
-Heavy container overrides: `Q_CLUSTER_NAME=reel-heavy`,
+Heavy container overrides: `Q_CLUSTER_NAME=leynor-heavy`,
 `Q_CLUSTER_WORKERS=1`, `Q_CLUSTER_TIMEOUT=3600`, `Q_CLUSTER_RETRY=3900`.
 
 `dev/docker-compose.dev.yml`, new service:
@@ -514,7 +514,7 @@ Heavy container overrides: `Q_CLUSTER_NAME=reel-heavy`,
     build:
       context: ..
       dockerfile: dev/Dockerfile.heavy
-    container_name: reel-heavy
+    container_name: leynor-heavy
     restart: unless-stopped
     depends_on:
       db:
@@ -522,7 +522,7 @@ Heavy container overrides: `Q_CLUSTER_NAME=reel-heavy`,
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/db
-      - Q_CLUSTER_NAME=reel-heavy
+      - Q_CLUSTER_NAME=leynor-heavy
       - Q_CLUSTER_WORKERS=1
       - Q_CLUSTER_TIMEOUT=3600
       - Q_CLUSTER_RETRY=3900
@@ -536,7 +536,7 @@ Heavy container overrides: `Q_CLUSTER_NAME=reel-heavy`,
 
 ```toml
 [project]
-name = "reel-playbook"
+name = "leynor"
 
 dependencies = [
     # ... leynor's base list unchanged ...
@@ -624,7 +624,7 @@ Test: `client.get("/")` returns 302 to `/dashboard/` when logged in, 302 to
 
 **1.3 Rename and settings.**
 Files: `config/settings/base.py`, `.env.example`, `docker-stack.yml`.
-Steps: add the `REEL_*` block, env-driven `Q_CLUSTER`, the five apps, the two
+Steps: add the `LEYNOR_*` block, env-driven `Q_CLUSTER`, the five apps, the two
 URL includes. Add the heavy service to `dev/docker-compose.dev.yml` and
 `qcluster-heavy` to `docker-stack.yml`.
 Test: `DJANGO_SETTINGS_MODULE=config.settings.test python manage.py check`
@@ -658,7 +658,7 @@ Files: move `creative.py` to `validators.py`, `agents.py`, `graphs.py`,
 `skills.py`; new `services.py: draft(step, brief) -> DraftResult`.
 Test: the existing `test_creative.py` cases move as is; `test_graph_runs_without_model`
 uses fake deps; `test_model_comes_from_settings` asserts
-`build_agents` receives `settings.REEL_LLM_MODEL`.
+`build_agents` receives `settings.LEYNOR_LLM_MODEL`.
 No torch, no network: the agents are never constructed in tests.
 
 **2.4 `voices/`.**

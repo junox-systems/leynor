@@ -41,7 +41,7 @@ def initialize_opentelemetry() -> Optional[object]:
         resource = Resource.create(
             {
                 "service.name": os.environ.get(
-                    "OTEL_SERVICE_NAME", "reel-playbook"
+                    "OTEL_SERVICE_NAME", "leynor"
                 ),
                 "service.version": os.environ.get("OTEL_SERVICE_VERSION", "1.0.0"),
                 "deployment.environment": os.environ.get("ENVIRONMENT", "development"),

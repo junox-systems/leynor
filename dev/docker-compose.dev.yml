@@ -47,7 +47,7 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://clickstack:4317
       - OTEL_ENABLED=${OTEL_ENABLED:-true}
       - VITE_HYPERDX_URL=http://localhost:4318
-      - VITE_HYPERDX_SERVICE=reel-playbook-frontend
+      - VITE_HYPERDX_SERVICE=leynor-frontend
     volumes:
       - ..:/app
       - django_venv:/app/.venv
@@ -66,7 +66,7 @@ services:
     build:
       context: ..
       dockerfile: dev/Dockerfile.heavy
-    container_name: reel-heavy
+    container_name: leynor-heavy
     restart: unless-stopped
     depends_on:
       db:
@@ -74,12 +74,12 @@ services:
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/db
-      - Q_CLUSTER_NAME=reel-heavy
+      - Q_CLUSTER_NAME=leynor-heavy
       - Q_CLUSTER_WORKERS=1
       - Q_CLUSTER_TIMEOUT=3600
       - Q_CLUSTER_RETRY=3900
       - OTEL_ENABLED=false
-      - REEL_ARTIFACT_ROOT=/app/var/artifacts
+      - LEYNOR_ARTIFACT_ROOT=/app/var/artifacts
     volumes:
       - ..:/app
       - heavy_venv:/app/.venv
