@@ -1,8 +1,8 @@
 {
-  "name": "app-frontend",
+  "name": "leynor-frontend",
   "version": "1.0.0",
   "type": "module",
-  "description": "Frontend dependencies",
+  "description": "Frontend dependencies for Leynor",
   "main": "./src/js/main.js",
   "scripts": {
     "dev": "vite",
