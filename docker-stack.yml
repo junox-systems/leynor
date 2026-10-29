@@ -1,3 +1,6 @@
+# Swarm's template engine expands one level only: ${VAR:-${OTHER}} stays a
+# literal string. Keep every default flat (${VAR:-default}), and export
+# APP_SLUG yourself, because `docker stack deploy` does not read .env.
 services:
   web:
     image: ${IMAGE_NAME:?IMAGE_NAME required}
@@ -10,7 +13,7 @@ services:
     # No published port: traffic enters through the nginx service.
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
-      DATABASE_URL: postgres://${POSTGRES_USER:-${APP_SLUG:-leynor}}:${POSTGRES_PASSWORD:-leynor}@db:5432/${POSTGRES_DB:-${APP_SLUG:-leynor}}
+      DATABASE_URL: postgres://${APP_SLUG:-leynor}:${POSTGRES_PASSWORD:-leynor}@db:5432/${APP_SLUG:-leynor}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-}
@@ -48,7 +51,7 @@ services:
         max_attempts: 3
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
-      DATABASE_URL: postgres://${POSTGRES_USER:-${APP_SLUG:-leynor}}:${POSTGRES_PASSWORD:-leynor}@db:5432/${POSTGRES_DB:-${APP_SLUG:-leynor}}
+      DATABASE_URL: postgres://${APP_SLUG:-leynor}:${POSTGRES_PASSWORD:-leynor}@db:5432/${APP_SLUG:-leynor}
       Q_CLUSTER_ROLE: heavy
       Q_CLUSTER_WORKERS: 1
       Q_CLUSTER_TIMEOUT: 3600
@@ -80,7 +83,7 @@ services:
         max_attempts: 3
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
-      DATABASE_URL: postgres://${POSTGRES_USER:-${APP_SLUG:-leynor}}:${POSTGRES_PASSWORD:-leynor}@db:5432/${POSTGRES_DB:-${APP_SLUG:-leynor}}
+      DATABASE_URL: postgres://${APP_SLUG:-leynor}:${POSTGRES_PASSWORD:-leynor}@db:5432/${APP_SLUG:-leynor}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-}
@@ -107,13 +110,13 @@ services:
       restart_policy:
         condition: any
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-${APP_SLUG:-leynor}}
+      POSTGRES_USER: ${APP_SLUG:-leynor}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
-      POSTGRES_DB: ${POSTGRES_DB:-${APP_SLUG:-leynor}}
+      POSTGRES_DB: ${APP_SLUG:-leynor}
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-${APP_SLUG:-leynor}} -d ${POSTGRES_DB:-${APP_SLUG:-leynor}}"]
+      test: ["CMD-SHELL", "pg_isready -U ${APP_SLUG:-leynor} -d ${APP_SLUG:-leynor}"]
       interval: 5s
       timeout: 5s
       retries: 5

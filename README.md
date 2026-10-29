@@ -248,6 +248,7 @@ Before deploying:
 Build image and deploy stack:
 
 ```bash
+export APP_SLUG=leynor            # swarm does not read .env
 export IMAGE_NAME=your-registry/leynor:latest
 just stack-build
 docker tag leynor $IMAGE_NAME
