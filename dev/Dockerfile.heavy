@@ -28,7 +28,13 @@ WORKDIR /app
 SHELL ["/bin/bash", "-c"]
 
 COPY mise.toml /app/mise.toml
-RUN mise trust && mise install
+# Same versions, but also as the global mise config: the worker runs from
+# /app/var and from scratch dirs, where /app/mise.toml is not on the path.
+RUN mise trust \
+    && mise install \
+    && mkdir -p /root/.config/mise \
+    && cp /app/mise.toml /root/.config/mise/config.toml \
+    && mise trust /root/.config/mise/config.toml
 ENV PATH="/root/.local/share/mise/shims:${PATH}"
 
 # Dependencies for the heavy worker. The project itself is bind-mounted at
@@ -37,9 +43,11 @@ COPY pyproject.toml uv.lock /app/
 RUN uv sync --extra heavy
 
 # HyperFrames is the composer. Pin it: an unpinned npx download at render time
-# is both slow and a moving target.
-RUN npm install -g "hyperframes@${HYPERFRAMES_VERSION}" \
-    && hyperframes --version
+# is both slow and a moving target. Installed to /usr/local so it wins over the
+# mise shim, which has no version mapped for npm-global binaries.
+RUN npm config set prefix /usr/local \
+    && npm install -g "hyperframes@${HYPERFRAMES_VERSION}" \
+    && env PATH="/usr/local/bin:${PATH}" hyperframes --version
 
 COPY dev/init-heavy.sh /init-heavy.sh
 RUN chmod +x /init-heavy.sh
