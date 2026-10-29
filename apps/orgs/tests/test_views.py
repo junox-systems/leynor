@@ -6,6 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.orgs.rbac import current_session
 from apps.orgs.models import (
     ADMIN,
     INVITATION_TTL,
@@ -83,15 +84,16 @@ class PersonalOrganizationTests(TestCase):
         user = make_user("sam")
         user_signed_up.send(sender=User, request=None, user=user)
         self.client.force_login(user)
-        payload = self.client.get(reverse("dashboard")).context["payload"]["org"]
-        self.assertEqual(payload["org"]["name"], "sam's workspace")
-        self.assertEqual(payload["org"]["roles"], [OWNER])
+        page = self.client.get(reverse("dashboard"))
+        session = current_session(page.wsgi_request)
+        self.assertEqual(session.organization.name, "sam's workspace")
+        self.assertEqual([role.name for role in session.membership.roles.all()], [OWNER])
 
     def test_dashboard_empty_state_without_org(self):
         self.client.force_login(make_user("sam"))
-        payload = self.client.get(reverse("dashboard")).context["payload"]["org"]
-        self.assertIsNone(payload["org"])
-        self.assertEqual(payload["urls"]["orgs"], reverse("orgs"))
+        page = self.client.get(reverse("dashboard"))
+        self.assertIsNone(current_session(page.wsgi_request))
+        self.assertContains(page, "No reels yet")
 
 
 class OrgSwitchTests(OrgTestCase):
@@ -105,7 +107,7 @@ class OrgSwitchTests(OrgTestCase):
             response, reverse("dashboard"), fetch_redirect_response=False
         )
         page = self.client.get(reverse("dashboard"))
-        self.assertEqual(page.context["payload"]["org"]["org"]["name"], "Globex")
+        self.assertEqual(current_session(page.wsgi_request).organization.name, "Globex")
         self.assertContains(page, "Switched to Globex.")
         # Dashboard switcher lists both orgs with the current one selected.
         self.assertContains(page, 'id="org-switcher"')

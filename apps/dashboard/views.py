@@ -6,22 +6,25 @@ from django.views.generic import TemplateView
 
 from apps.orgs.rbac import current_session
 
-from .panels import account_payload, activity_payload, org_payload
+from .panels import activity_payload
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
-    """Authenticated home. Panels are Svelte children of one Dashboard root."""
+    """Today: what waits on a person, and the reels moving down the route."""
 
     template_name = "dashboard/index.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        user = self.request.user
-        # One payload dict -> one json_script node -> props of the Svelte root.
-        context["payload"] = {
-            "account": account_payload(user),
-            "org": org_payload(current_session(self.request)),
-        }
+        session = current_session(self.request)
+        projects = (
+            list(session.organization.projects.prefetch_related("gates"))
+            if session
+            else []
+        )
+        context["awaiting"] = [project for project in projects if project.needs_person]
+        context["projects"] = projects[:5]
+        context["total"] = len(projects)
         return context
 
 

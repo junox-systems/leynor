@@ -4,12 +4,92 @@
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
+<div class="space-y-10">
     {# Lives here, not the app bar: it overflowed the top bar on phones. #}
-    <c-org-switcher action="{% url 'org_switch' %}" :current="org_switcher.current" :organizations="org_switcher.organizations" class="mb-6" />
-    {# One payload node -> props of the Svelte root. json_script escapes safely; #}
-    {# never hand-build JSON into an HTML attribute. #}
-    {{ payload|json_script:"dashboard-payload" }}
-    <div data-controller="svelte-bridge"
-         data-svelte-bridge-component-value="dashboard/Dashboard"
-         data-svelte-bridge-props-id-value="dashboard-payload"></div>
+    <c-org-switcher action="{% url 'org_switch' %}" :current="org_switcher.current" :organizations="org_switcher.organizations" />
+
+    <section class="flex flex-wrap items-end justify-between gap-4">
+        <div class="max-w-xl">
+            <h2 class="text-2xl font-semibold tracking-tight">Six gates, one reel</h2>
+            <p class="text-muted-foreground mt-1.5 text-sm text-pretty">
+                Spark, Hook, Board, Look, Voice, Print. Board and Print wait for a person;
+                the rest pass on evidence.
+            </p>
+        </div>
+        <c-btn href="{% url 'project_new' %}">Start a reel</c-btn>
+    </section>
+
+    {% if awaiting %}
+        <section class="space-y-3" aria-labelledby="awaiting-title">
+            <h3 id="awaiting-title" class="text-sm font-semibold">Waiting on you</h3>
+            <ul class="divide-border divide-y rounded-lg border">
+                {% for project in awaiting %}
+                    <li class="flex flex-wrap items-center gap-3 px-4 py-3">
+                        <div class="min-w-0 flex-1">
+                            <a href="{% url 'project_detail' project.pk %}"
+                               class="font-medium underline-offset-4 hover:underline">{{ project.title }}</a>
+                            <p class="text-muted-foreground mt-0.5 text-sm">{{ project.summary }}</p>
+                        </div>
+                        {% if project.current_gate.result == "rejected" %}
+                            <c-badge variant="destructive">Sent back</c-badge>
+                        {% else %}
+                            <c-badge variant="primary">Your call</c-badge>
+                        {% endif %}
+                        <c-btn href="{% url 'project_detail' project.pk %}" variant="outline" size="sm">Review</c-btn>
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
+    {% endif %}
+
+    <section class="space-y-3" aria-labelledby="reels-title">
+        <div class="flex items-center justify-between gap-4">
+            <h3 id="reels-title" class="text-sm font-semibold">Recent reels</h3>
+            {% if total > 5 %}
+                <a href="{% url 'projects' %}" class="text-muted-foreground text-sm underline-offset-4 hover:underline">
+                    All {{ total }}
+                </a>
+            {% endif %}
+        </div>
+
+        {% if projects %}
+            <c-table>
+                <thead>
+                    <tr>
+                        <th scope="col">Reel</th>
+                        <th scope="col" class="hidden sm:table-cell">Route</th>
+                        <th scope="col">Now</th>
+                        <th scope="col" class="text-end">Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for project in projects %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'project_detail' project.pk %}"
+                                   class="font-medium underline-offset-4 hover:underline">{{ project.title }}</a>
+                                <div class="text-muted-foreground mt-0.5 font-mono text-xs">{{ project.slug }}</div>
+                            </td>
+                            <td class="hidden sm:table-cell"><c-route-dots :project="project" /></td>
+                            <td>
+                                {% if project.complete %}
+                                    <c-badge variant="secondary">Complete</c-badge>
+                                {% else %}
+                                    <span class="text-sm">{{ project.summary }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted-foreground text-end text-xs">{{ project.updated_at|date:"j M" }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </c-table>
+        {% else %}
+            <c-empty title="No reels yet"
+                     description="A reel starts with one idea sentence and ends with a printed 9:16. Create the first one and its six gates appear here.">
+                <c-slot name="icon"><c-icon.film /></c-slot>
+                <c-btn href="{% url 'project_new' %}">Start a reel</c-btn>
+            </c-empty>
+        {% endif %}
+    </section>
+</div>
 {% endblock %}

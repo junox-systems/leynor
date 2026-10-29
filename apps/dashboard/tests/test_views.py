@@ -4,7 +4,7 @@ from auditlog.models import LogEntry
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.dashboard.panels import account_payload, activity_payload
+from apps.dashboard.panels import activity_payload
 from apps.users.models import User
 
 
@@ -55,19 +55,15 @@ class DashboardViewTests(TestCase):
         )
         self.assertRedirects(response, reverse("profile"))
 
-    def test_dashboard_renders_payload_as_json_script(self):
+    def test_dashboard_renders_the_route_server_side(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse("dashboard"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'id="dashboard-payload"')
-        self.assertContains(
-            response, 'data-svelte-bridge-component-value="dashboard/Dashboard"'
-        )
-
-        payload = response.context["payload"]
-        self.assertEqual(set(payload), {"account", "org"})
-        # Must survive a JSON round trip — it is rendered with json_script.
-        json.dumps(payload)
+        self.assertContains(response, "Six gates, one reel")
+        self.assertContains(response, "No reels yet")
+        # No island and no payload: the dashboard is plain Django + Cotton.
+        self.assertNotContains(response, "dashboard-payload")
+        self.assertEqual(response.context["total"], 0)
 
 
 class ActivityViewTests(TestCase):
@@ -138,29 +134,6 @@ class ActivityPayloadTests(TestCase):
         self.assertEqual(activity_payload(self.user)["entries"], [])
 
 
-class AccountPayloadTests(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(
-            email="alice@example.com", username="alice", password="s3cret-pw"
-        )
-
-    def test_reports_unverified_email_and_no_providers(self):
-        payload = account_payload(self.user)
-        checks = {c["label"]: c for c in payload["checks"]}
-        self.assertFalse(checks["Email verified"]["done"])
-        self.assertFalse(checks["Connected accounts"]["done"])
-        self.assertTrue(checks["Password set"]["done"])
-
-    def test_reports_verified_email(self):
-        from allauth.account.models import EmailAddress
-
-        EmailAddress.objects.create(
-            user=self.user, email=self.user.email, verified=True, primary=True
-        )
-        checks = {c["label"]: c for c in account_payload(self.user)["checks"]}
-        self.assertTrue(checks["Email verified"]["done"])
-
-
 class ProfileMovedUnderDashboardTests(TestCase):
     def test_profile_url_lives_under_dashboard(self):
         self.assertEqual(reverse("profile"), "/dashboard/user/profile/")
@@ -188,15 +161,27 @@ class AppNavTests(TestCase):
         admin = next(i for i in items if i["label"] == "Admin")
         self.assertIs(admin["boost"], False)
 
-    def test_account_group_holds_activity_profile_and_orgs(self):
+    def test_the_application_and_account_groups_keep_their_own_links(self):
         response, _ = self._items()
         groups = {
             g["label"]: [i["label"] for i in g["items"]]
             for g in response.context["app_nav"]["groups"]
         }
-        self.assertEqual(groups["Application"], ["Dashboard"])
+        self.assertEqual(list(groups), ["Application", "Account"])
+        # The product's screens.
+        self.assertEqual(groups["Application"], ["Dashboard", "Reels"])
+        # Everything that changes who you are or who you belong to.
         self.assertEqual(
-            groups["Account"][:3], ["Activity", "Profile", "Organizations"]
+            groups["Account"],
+            [
+                "Activity",
+                "Profile",
+                "Organizations",
+                "Email addresses",
+                "Password",
+                "Two-factor",
+                "Connections",
+            ],
         )
 
     def test_sidebar_is_preserved_across_boosted_visits(self):

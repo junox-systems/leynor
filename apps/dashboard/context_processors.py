@@ -21,7 +21,11 @@ def _item(label, urlname, icon, **extra):
 
 @lru_cache(maxsize=2)
 def _groups(is_staff):
-    """Cached: these URLs are static, and this runs on every request."""
+    """Cached: these URLs are static, and this runs on every request.
+
+    Two groups, one rule: the product's own screens sit under Application, and
+    everything that changes who you are or who you belong to sits under Account.
+    """
     account = [
         _item("Activity", "activity", "activity"),
         _item("Profile", "profile", "user"),
@@ -38,7 +42,10 @@ def _groups(is_staff):
     return [
         {
             "label": "Application",
-            "items": [_item("Dashboard", "dashboard", "dashboard")],
+            "items": [
+                _item("Dashboard", "dashboard", "dashboard"),
+                _item("Reels", "projects", "film"),
+            ],
         },
         {"label": "Account", "items": account},
     ]
