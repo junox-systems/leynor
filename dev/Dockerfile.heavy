@@ -1,0 +1,57 @@
+# Heavy worker image: ffmpeg, Node, Chromium, torch, faster-whisper, pocket-tts.
+#
+# The web image never installs these. Nothing here is imported by Django at
+# startup; the run task imports it lazily inside the step that needs it.
+FROM debian:trixie-slim
+
+ARG MISE_VERSION=2026.8.0
+ARG HYPERFRAMES_VERSION=0.8.188
+
+ENV ENVIRONMENT=development \
+    UV_NO_CACHE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    CHROME_BIN=/usr/bin/chromium \
+    HYPERFRAMES_NO_UPDATE_CHECK=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates curl xz-utils git ffmpeg chromium \
+        fonts-dejavu-core fonts-liberation \
+        libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+        libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+        libgbm1 libasound2 \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/').tar.xz" \
+    | tar -xJf - -C /usr/local/bin --strip-components=2 mise/bin/mise
+
+WORKDIR /app
+SHELL ["/bin/bash", "-c"]
+
+COPY mise.toml /app/mise.toml
+# Same versions, but also as the global mise config: the worker runs from
+# /app/var and from scratch dirs, where /app/mise.toml is not on the path.
+RUN mise trust \
+    && mise install \
+    && mkdir -p /root/.config/mise \
+    && cp /app/mise.toml /root/.config/mise/config.toml \
+    && mise trust /root/.config/mise/config.toml
+ENV PATH="/root/.local/share/mise/shims:${PATH}"
+
+# Dependencies for the heavy worker. The project itself is bind-mounted at
+# runtime, so only the manifests are needed to build the environment.
+COPY pyproject.toml uv.lock /app/
+RUN uv sync --extra heavy
+
+# HyperFrames is the composer. Pin it: an unpinned npx download at render time
+# is both slow and a moving target. Installed to /usr/local so it wins over the
+# mise shim, which has no version mapped for npm-global binaries.
+RUN npm config set prefix /usr/local \
+    && npm install -g "hyperframes@${HYPERFRAMES_VERSION}" \
+    && env PATH="/usr/local/bin:${PATH}" hyperframes --version
+
+COPY dev/init-heavy.sh /init-heavy.sh
+RUN chmod +x /init-heavy.sh
+
+EXPOSE 8000
+
+CMD ["/init-heavy.sh"]

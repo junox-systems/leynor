@@ -1,5 +1,8 @@
-from django.shortcuts import render
+from django.shortcuts import redirect
 
 
 def home(request):
-    return render(request, "home.html")
+    """No marketing page: the app is private. Send people where they work."""
+    if request.user.is_authenticated:
+        return redirect("dashboard")
+    return redirect("account_login")

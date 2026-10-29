@@ -118,6 +118,19 @@ vite-dev:
 qcluster-dev:
     DJANGO_SETTINGS_MODULE=config.settings.dev uv run python manage.py qcluster
 
+# Heavy worker: torch, whisper, ffmpeg, Chromium. Never in the web image.
+qcluster-heavy-dev:
+    DJANGO_SETTINGS_MODULE=config.settings.dev uv run python manage.py qcluster
+
+heavy-build:
+    {{compose}} build heavy
+
+heavy-up:
+    {{compose}} up -d --build heavy
+
+heavy-logs:
+    {{compose}} logs -f heavy
+
 makemigrations:
     uv run python manage.py makemigrations
 

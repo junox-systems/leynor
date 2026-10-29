@@ -1,6 +1,6 @@
-# AGENTS.md — Django Starter Kit
+# AGENTS.md — Reel Playbook
 
-Django 5.2 LTS starter kit. Modular monolith. Lean, opinionated, prod-ready. Single source of truth for architecture + conventions.
+Reel Playbook: a private Django app that takes an idea to a rendered 9:16 Reel. Built on the Django 5.2 starter kit (leynor). Modular monolith. Single source of truth for architecture + conventions.
 
 ## Principles
 

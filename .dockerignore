@@ -76,3 +76,6 @@ htmlcov/
 
 # Ruff
 .ruff_cache/
+
+# Agent worktrees
+.worktrees/

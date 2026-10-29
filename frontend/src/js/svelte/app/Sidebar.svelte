@@ -61,7 +61,7 @@
 <nav>
   <header>
     <span class="font-heading flex h-12 items-center px-2 text-base font-semibold tracking-tight">
-      Django Starter Kit
+      Reel Playbook
     </span>
   </header>
 

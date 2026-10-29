@@ -36,6 +36,37 @@ services:
     networks:
       - backend
 
+  # Heavy worker: one replica, serialises TTS, ASR, compose and render.
+  qcluster-heavy:
+    image: ${HEAVY_IMAGE_NAME:?HEAVY_IMAGE_NAME required}
+    entrypoint: ["/init-heavy.sh"]
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      DATABASE_URL: postgres://${POSTGRES_USER:-django}:${POSTGRES_PASSWORD:-django}@db:5432/${POSTGRES_DB:-django}
+      Q_CLUSTER_NAME: reel-heavy
+      Q_CLUSTER_WORKERS: 1
+      Q_CLUSTER_TIMEOUT: 3600
+      Q_CLUSTER_RETRY: 3900
+      REEL_ARTIFACT_ROOT: /app/var/artifacts
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?CSRF_TRUSTED_ORIGINS required}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-}
+    volumes:
+      - artifacts:/app/var/artifacts
+    depends_on:
+      - db
+    networks:
+      - backend
+
   # django-q2 workers + scheduler; replicas 1 so schedules fire once.
   qcluster:
     image: ${IMAGE_NAME:?IMAGE_NAME required}
@@ -114,6 +145,7 @@ configs:
     file: ./prod/nginx/nginx.conf
 
 volumes:
+  artifacts:
   postgres_data:
 
 networks:

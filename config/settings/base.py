@@ -41,6 +41,11 @@ INSTALLED_APPS = [
     # Local Apps
     "apps.core",
     "apps.users",
+    "apps.projects",
+    "apps.runs",
+    "apps.creative",
+    "apps.voices",
+    "apps.renders",
     "apps.api",
     "apps.pages",
     "apps.dashboard",
@@ -52,7 +57,6 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "django.contrib.sitemaps",
     # Default widget templates for FORM_RENDERER below.
     "django.forms",
     # Third Party
@@ -108,7 +112,7 @@ from dmr.openapi import OpenAPIConfig  # noqa: E402
 
 DMR_SETTINGS: dict = {
     Settings.openapi_config: OpenAPIConfig(
-        title="Django Starter Kit API",
+        title="Reel Playbook API",
         version="0.1.0",
     ),
 }
@@ -225,6 +229,18 @@ DJANGO_VITE = {
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Reel pipeline
+# ------------------------------------------------------------------------------
+# Artifacts never go through MEDIA_URL: they are private and served by an
+# authenticated view. Local disk now, private bucket later, same Store contract.
+REEL_ARTIFACT_ROOT = Path(
+    env("REEL_ARTIFACT_ROOT", default=str(BASE_DIR / "var" / "artifacts"))
+)
+REEL_LLM_MODEL = env("REEL_LLM_MODEL", default="")
+REEL_WHISPER_SIZE = env("REEL_WHISPER_SIZE", default="base.en")
+REEL_RENDER_QUALITY = env("REEL_RENDER_QUALITY", default="delivery")
+REEL_MIN_FREE_GB = env.int("REEL_MIN_FREE_GB", default=10)
+
 # S3 Storage Settings
 # ------------------------------------------------------------------------------
 AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
@@ -336,12 +352,14 @@ CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 # The ORM is the broker: tasks queue in Postgres, no Redis. Run workers with
 # `python manage.py qcluster`; schedules live in the admin (django_q.Schedule).
 Q_CLUSTER = {
-    "name": "django-starter-kit",
+    "name": env("Q_CLUSTER_NAME", default="reel-default"),
     "orm": "default",
-    "workers": 2,
-    "timeout": 25 * 60,  # seconds, hard limit per task
-    "retry": 30 * 60,  # re-queue tasks not acknowledged by then; must exceed timeout
-    "max_attempts": 5,
+    "workers": env.int("Q_CLUSTER_WORKERS", default=2),
+    "timeout": env.int("Q_CLUSTER_TIMEOUT", default=1500),  # hard limit per task
+    # Re-queue tasks not acknowledged by then; must exceed timeout or a live
+    # render is handed to a second worker.
+    "retry": env.int("Q_CLUSTER_RETRY", default=1800),
+    "max_attempts": 1,  # the run task resumes from StepRun rows, never retries
     "catch_up": False,  # skip schedules missed while the cluster was down
 }
 

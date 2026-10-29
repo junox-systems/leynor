@@ -47,7 +47,7 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://clickstack:4317
       - OTEL_ENABLED=${OTEL_ENABLED:-true}
       - VITE_HYPERDX_URL=http://localhost:4318
-      - VITE_HYPERDX_SERVICE=django-starter-kit-frontend
+      - VITE_HYPERDX_SERVICE=reel-playbook-frontend
     volumes:
       - ..:/app
       - django_venv:/app/.venv
@@ -61,9 +61,35 @@ services:
     networks:
       - default
 
+  # One heavy worker: torch, whisper, ffmpeg and Chromium live only here.
+  heavy:
+    build:
+      context: ..
+      dockerfile: dev/Dockerfile.heavy
+    container_name: reel-heavy
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/db
+      - Q_CLUSTER_NAME=reel-heavy
+      - Q_CLUSTER_WORKERS=1
+      - Q_CLUSTER_TIMEOUT=3600
+      - Q_CLUSTER_RETRY=3900
+      - OTEL_ENABLED=false
+      - REEL_ARTIFACT_ROOT=/app/var/artifacts
+    volumes:
+      - ..:/app
+      - heavy_venv:/app/.venv
+    networks:
+      - default
+
 volumes:
   postgres_data:
   django_venv:
+  heavy_venv:
   frontend_node_modules:
   clickstack_db:
   clickstack_ch_data:

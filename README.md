@@ -1,6 +1,6 @@
-# Django 5.2 LTS Starter Kit
+# Reel Playbook
 
-A modern, production-ready Django starter kit — opinionated, lean, and ready to build on.
+A private Django app for one gated route from an idea to a rendered 9:16 Reel. Built on the leynor Django 5.2 starter kit: organizations, RBAC, DMR, django-q2, Cotton and htmx.
 
 ## What's Inside
 

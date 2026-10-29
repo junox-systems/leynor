@@ -69,7 +69,7 @@ class AccountDataTests(TestCase):
         response = self.client.post(
             reverse("delete_account"), {"confirm": " Erin@Example.com "}
         )
-        self.assertRedirects(response, reverse("home"))
+        self.assertRedirects(response, reverse("home"), fetch_redirect_response=False)
         self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
         self.assertFalse(Organization.objects.exists())
         self.assertFalse(LogEntry.objects.filter(object_pk=str(self.user.pk)).exists())

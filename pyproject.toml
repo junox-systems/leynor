@@ -1,7 +1,7 @@
 [project]
-name = "django-starter-kit"
-version = "0.6.0"
-description = "A modern, high-performance Django 5.2 LTS starter kit with best practices"
+name = "reel-playbook"
+version = "0.1.0"
+description = "One gated route from an idea to a rendered 9:16 Reel, as a Django app"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
@@ -42,7 +42,28 @@ dependencies = [
     "dj-control-room[cache,urls,signals]>=1.8.1",
     "django-paradedb>=0.15.0",
     "django-cotton>=2.8.0",
+    # Reel pipeline: drafting agents and the draft graph
+    "pydantic>=2.11",
+    "pydantic-ai>=2.60,<3",
 ]
+
+# Heavy media dependencies. The web image runs `uv sync` without this extra;
+# the heavy worker image runs `uv sync --extra heavy`. Nothing in the web
+# process may import these at module level.
+[project.optional-dependencies]
+heavy = [
+    "torch>=2.6",
+    "faster-whisper>=1.1",
+    "pocket-tts>=4.0.1",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
 
 # Dev-only: the production image runs `uv sync --no-dev`.
 # e2e is not a default group: browser tests run on the host via `just e2e`,

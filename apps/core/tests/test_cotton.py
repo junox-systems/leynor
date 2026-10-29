@@ -24,7 +24,7 @@ class CottonPagesTests(TestCase):
         return response
 
     def test_public_pages(self):
-        for name in ("home", "account_login", "account_signup", "account_inactive"):
+        for name in ("account_login", "account_signup", "account_inactive"):
             with self.subTest(name=name):
                 self.assertCompiled(reverse(name))
 

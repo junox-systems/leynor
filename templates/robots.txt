@@ -3,5 +3,5 @@ Disallow: /admin/
 Disallow: /dashboard/
 Disallow: /accounts/
 Disallow: /api/
-
-Sitemap: {{ request.scheme }}://{{ request.get_host }}{% url "sitemap" %}
+Disallow: /projects/
+Disallow: /runs/
