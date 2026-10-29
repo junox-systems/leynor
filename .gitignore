@@ -61,3 +61,6 @@ out.mp4
 
 # pipeline artifacts (private, never in git)
 var/
+
+# pnpm store created by the dev container
+.pnpm-store/
