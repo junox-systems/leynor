@@ -59,7 +59,7 @@ A private Django app for one gated route from an idea to a rendered 9:16 Reel. D
 
 ```bash
 git clone <repository-url>
-cd django-starter-kit
+cd leynor
 
 cp .env.example .env   # optional: every key has a dev default
 
@@ -160,7 +160,7 @@ clash and `just dev-psql` opens a shell (also as `make dev-psql`).
 ## Project Structure
 
 ```
-django-starter-kit/
+leynor/
 ├── apps/
 │   ├── core/          # BaseModel (UUID + timestamps) — keep lean
 │   ├── users/         # User model (email login, avatar, auditlog)
@@ -248,9 +248,9 @@ Before deploying:
 Build image and deploy stack:
 
 ```bash
-export IMAGE_NAME=your-registry/django-starter-kit:latest
+export IMAGE_NAME=your-registry/leynor:latest
 just stack-build
-docker tag django-starter-kit $IMAGE_NAME
+docker tag leynor $IMAGE_NAME
 docker push $IMAGE_NAME
 just stack-deploy
 ```

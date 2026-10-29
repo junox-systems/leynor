@@ -125,11 +125,11 @@ vite-build:
 
 .PHONY: docker-build
 docker-build:
-	docker build -t django-starter-kit .
+	docker build -t $${APP_SLUG:-leynor} .
 
 .PHONY: smoke-prod
 smoke-prod:
-	prod/smoke.sh django-starter-kit
+	prod/smoke.sh $${APP_SLUG:-leynor}
 ## - END BUILD - ## -------------------------------------------------------------------------------
 
 ### - PROD - ### ---------------------------------------------------------------------------------
@@ -153,23 +153,23 @@ prod-start:
 #### - STACK - #### ------------------------------------------------------------------------------
 .PHONY: stack-build
 stack-build:
-	docker build -t django-starter-kit .
+	docker build -t $${APP_SLUG:-leynor} .
 
 .PHONY: stack-deploy
 stack-deploy:
-	docker stack deploy -c docker-stack.yml django-starter-kit
+	docker stack deploy -c docker-stack.yml $${APP_SLUG:-leynor}
 
 .PHONY: stack-rm
 stack-rm:
-	docker stack rm django-starter-kit
+	docker stack rm $${APP_SLUG:-leynor}
 
 .PHONY: stack-logs
 stack-logs:
-	docker service logs -f django-starter-kit_web
+	docker service logs -f $${APP_SLUG:-leynor}_web
 
 .PHONY: stack-ps
 stack-ps:
-	docker stack services django-starter-kit
+	docker stack services $${APP_SLUG:-leynor}
 ## - END STACK - ##
 
 # deploy:

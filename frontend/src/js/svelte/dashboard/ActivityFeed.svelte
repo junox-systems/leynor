@@ -34,8 +34,7 @@
         <h3>No activity yet</h3>
         <p>
           Changes appear here once they are audited. Only models registered with
-          <code class="kbd">auditlog.register()</code> are tracked — this starter kit
-          registers <code class="kbd">User</code>.
+          <code class="kbd">auditlog.register()</code> are tracked. Accounts are.
         </p>
       </header>
     </div>

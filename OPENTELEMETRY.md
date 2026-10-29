@@ -1,6 +1,6 @@
 # OpenTelemetry Integration
 
-This Django starter kit includes opt-in OpenTelemetry support for distributed tracing. The integration works with any OTLP-compatible backend (SigNoz, Grafana Tempo, Jaeger, Datadog, etc.).
+This app includes opt-in OpenTelemetry support for distributed tracing. The integration works with any OTLP-compatible backend (SigNoz, Grafana Tempo, Jaeger, Datadog, etc.).
 
 ## Packages
 
@@ -18,7 +18,7 @@ OpenTelemetry is **disabled by default**. Enable it by setting environment varia
 ```env
 OTEL_ENABLED=true
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-OTEL_SERVICE_NAME=django-starter-kit
+OTEL_SERVICE_NAME=leynor
 OTEL_SERVICE_VERSION=1.0.0
 ```
 

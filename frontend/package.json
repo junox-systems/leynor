@@ -1,8 +1,8 @@
 {
-  "name": "django-starter-kit-frontend",
+  "name": "app-frontend",
   "version": "1.0.0",
   "type": "module",
-  "description": "Frontend dependencies for the Django Starter Kit",
+  "description": "Frontend dependencies",
   "main": "./src/js/main.js",
   "scripts": {
     "dev": "vite",

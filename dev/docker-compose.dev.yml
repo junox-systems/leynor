@@ -14,14 +14,14 @@ services:
     environment:
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "postgres"
-      POSTGRES_DB: ${POSTGRES_DB:-leynor}
+      POSTGRES_DB: ${POSTGRES_DB:-${APP_SLUG:-leynor}}
     volumes:
       - postgres_data:/var/lib/postgresql
     # No host port: everything, including manage.py from the app container,
     # reaches the database as db:5432 on the compose network, so a local
     # Postgres on 5432 cannot clash.
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-leynor}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-${APP_SLUG:-leynor}}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -49,14 +49,14 @@ services:
         condition: service_healthy
     environment:
       - ENVIRONMENT=development
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/${POSTGRES_DB:-leynor}
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/${POSTGRES_DB:-${APP_SLUG:-leynor}}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://clickstack:4317
       - OTEL_ENABLED=${OTEL_ENABLED:-true}
       - VITE_HYPERDX_URL=http://localhost:4318
-      - VITE_HYPERDX_SERVICE=leynor-frontend
+      - VITE_HYPERDX_SERVICE=${APP_SLUG:-leynor}-frontend
     volumes:
       - ..:/app
-      - django_venv:/app/.venv
+      - python_venv:/app/.venv
       - frontend_node_modules:/app/frontend/node_modules
       # Baked into the image for a plain `docker run`; mounted here so edits to
       # the startup script apply on `restart` without rebuilding.
@@ -79,7 +79,7 @@ services:
         condition: service_healthy
     environment:
       - ENVIRONMENT=development
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/${POSTGRES_DB:-leynor}
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/${POSTGRES_DB:-${APP_SLUG:-leynor}}
       - Q_CLUSTER_ROLE=heavy
       - Q_CLUSTER_WORKERS=1
       - Q_CLUSTER_TIMEOUT=3600
@@ -94,7 +94,7 @@ services:
 
 volumes:
   postgres_data:
-  django_venv:
+  python_venv:
   heavy_venv:
   frontend_node_modules:
   clickstack_db:

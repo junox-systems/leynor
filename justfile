@@ -1,6 +1,10 @@
 # Port of the Makefile — same recipe names, Make's multi-name targets as aliases.
 
-compose := "docker compose -f dev/docker-compose.dev.yml"
+# Compose loads .env from the compose file's directory, not the repo root, so
+# APP_NAME/APP_SLUG in .env would only reach Django. Pass it explicitly when it
+# exists: both the app and the stack then read one file.
+dotenv := if path_exists(".env") == "true" { "--env-file .env" } else { "" }
+compose := "docker compose " + dotenv + " -f dev/docker-compose.dev.yml"
 
 [parallel]
 install: deps-django deps-frontend
@@ -147,10 +151,10 @@ vite-build:
     cd frontend && pnpm run build
 
 docker-build:
-    docker build -t django-starter-kit .
+    docker build -t ${APP_SLUG:-leynor} .
 
 # Boot the built image (db + web + qcluster) and probe it
-smoke-prod image="django-starter-kit":
+smoke-prod image=env("APP_SLUG", "leynor"):
     prod/smoke.sh {{image}}
 
 # Secrets and hosts below are throwaways so the settings module imports; the
@@ -182,16 +186,16 @@ prod-start:
 #### STACK ####
 
 stack-build:
-    docker build -t django-starter-kit .
+    docker build -t ${APP_SLUG:-leynor} .
 
 stack-deploy:
-    docker stack deploy -c docker-stack.yml django-starter-kit
+    docker stack deploy -c docker-stack.yml ${APP_SLUG:-leynor}
 
 stack-rm:
-    docker stack rm django-starter-kit
+    docker stack rm ${APP_SLUG:-leynor}
 
 stack-logs:
-    docker service logs -f django-starter-kit_web
+    docker service logs -f ${APP_SLUG:-leynor}_web
 
 stack-ps:
-    docker stack services django-starter-kit
+    docker stack services ${APP_SLUG:-leynor}
