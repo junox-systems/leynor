@@ -36,8 +36,13 @@ apps/           # ALL backend code. Never at project root
   users/        # User (email login, UUID PK, avatar)
   api/          # DMR controllers + schemas/
   pages/        # static/marketing pages
-  dashboard/    # /dashboard/ — panel payloads, no models
+  dashboard/    # /dashboard/ + /dashboard/activity/ — overview, activity payload
   orgs/         # orgs, memberships, RBAC roles (rbac.py), email invitations
+  projects/     # Project + Gate: the six-step route, its states and decisions
+  runs/         # artifact store + step→runner registry (no models yet)
+  creative/     # drafting agents (pydantic-ai) + validators
+  voices/       # TTS, ASR alignment, mix
+  renders/      # look, compose, print, HyperFrames
 config/
   settings/     # base / dev / production / test
   asgi.py       # ASGI + OTEL init
@@ -47,7 +52,7 @@ frontend/src/
   css/site.css    # Basecoat style pack — all component visuals
   js/main.js      # htmx config, Stimulus boot, controller auto-register
   js/controllers/ # Stimulus (auto-registered)
-  js/svelte/      # islands: app/ (Sidebar), dashboard/
+  js/svelte/      # islands: app/ (Sidebar), dashboard/ (Activity only)
 templates/
   base.html       # public pages
   base_app.html   # authed app shell (htmx-boosted)
@@ -250,11 +255,11 @@ view.get_context_data() ──────────────────�
 1. `<name>_payload(user) -> dict` in `apps/<app>/panels.py`. JSON-safe primitives.
 2. Add key to view's `payload` in `get_context_data`.
 3. Template: `{{ payload|json_script:"<id>" }}` + mount el: `data-controller="svelte-bridge"`, component value, `data-svelte-bridge-props-id-value="<id>"`.
-4. `svelte/<area>/<Name>.svelte`, runes only (`$props`, `$state`, `$derived`). Card chrome: reuse `dashboard/Panel.svelte`.
+4. `svelte/<area>/<Name>.svelte`, runes only (`$props`, `$state`, `$derived`). Card chrome: reuse `dashboard/Panel.svelte` (Activity still uses it).
 5. Live refresh only: DMR controller calling same `*_payload`; URL via payload.
 6. Verify: `just test` → `cd frontend && pnpm run build` → load page, check console. `svelte-bridge: no component found` = wrong component path.
 
-Dashboard: `svelte/dashboard/Dashboard.svelte` = one root composing panels. Root owns layout + cross-panel state; children get props + callbacks, **never own stores/context**. New panel = render in root grid with its slice.
+**Prefer rung 1.** The dashboard is server-rendered (`templates/dashboard/index.html`): project lists, route dots and gate decisions are Cotton + Django forms, so they arrive finished and need no JS. Only Activity remains an island (`dashboard/Activity.svelte`), because it refreshes from DMR.
 
 ### htmx (boosted nav)
 
