@@ -1,0 +1,96 @@
+# For development environment
+
+services:
+  db:
+    image: paradedb/paradedb:0.26.2-pg18
+    container_name: django-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "db"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    # No host port: everything, including manage.py from the app container,
+    # reaches the database as db:5432 on the compose network, so a local
+    # Postgres on 5432 cannot clash.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  clickstack:
+    image: clickhouse/clickstack-local:2.33.0
+    container_name: django-clickstack
+    ports:
+      - "8080:8080"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - clickstack_db:/data/db
+      - clickstack_ch_data:/var/lib/clickhouse
+      - clickstack_ch_logs:/var/log/clickhouse-server
+
+  app:
+    build:
+      context: ..
+      dockerfile: dev/Dockerfile
+    container_name: django-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/db
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://clickstack:4317
+      - OTEL_ENABLED=${OTEL_ENABLED:-true}
+      - VITE_HYPERDX_URL=http://localhost:4318
+      - VITE_HYPERDX_SERVICE=reel-playbook-frontend
+    volumes:
+      - ..:/app
+      - django_venv:/app/.venv
+      - frontend_node_modules:/app/frontend/node_modules
+      # Baked into the image for a plain `docker run`; mounted here so edits to
+      # the startup script apply on `restart` without rebuilding.
+      - ./init.sh:/init.sh:ro
+    ports:
+      - "8000:8000" # Django
+      - "5173:5173" # Vite
+    networks:
+      - default
+
+  # One heavy worker: torch, whisper, ffmpeg and Chromium live only here.
+  heavy:
+    build:
+      context: ..
+      dockerfile: dev/Dockerfile.heavy
+    container_name: reel-heavy
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/db
+      - Q_CLUSTER_NAME=reel-heavy
+      - Q_CLUSTER_WORKERS=1
+      - Q_CLUSTER_TIMEOUT=3600
+      - Q_CLUSTER_RETRY=3900
+      - OTEL_ENABLED=false
+      - REEL_ARTIFACT_ROOT=/app/var/artifacts
+    volumes:
+      - ..:/app
+      - heavy_venv:/app/.venv
+    networks:
+      - default
+
+volumes:
+  postgres_data:
+  django_venv:
+  heavy_venv:
+  frontend_node_modules:
+  clickstack_db:
+  clickstack_ch_data:
+  clickstack_ch_logs:
