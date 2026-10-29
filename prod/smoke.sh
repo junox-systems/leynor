@@ -1,12 +1,12 @@
 #!/bin/bash
 # Boot the prod image like docker-stack.yml (db + web + qcluster) and probe it.
-# Usage: prod/smoke.sh [image]   (default: django-starter-kit)
+# Usage: prod/smoke.sh [image]   (default: leynor)
 set -euo pipefail
 
-IMAGE="${1:-django-starter-kit}"
+IMAGE="${1:-${APP_SLUG:-leynor}}"
 P="smoke-$$"
 ENV=(
-  -e DATABASE_URL="postgres://django:smoke@$P-db:5432/django"
+  -e DATABASE_URL="postgres://leynor:smoke@$P-db:5432/leynor"
   -e SECRET_KEY="smoke-$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
   -e DEFAULT_FROM_EMAIL=smoke@example.com
   -e CSRF_TRUSTED_ORIGINS=https://example.com
@@ -22,7 +22,7 @@ fail() {
 trap cleanup EXIT
 
 docker network create "$P" >/dev/null
-docker run -d --name "$P-db" --network "$P" -e POSTGRES_USER=django -e POSTGRES_PASSWORD=smoke -e POSTGRES_DB=django paradedb/paradedb:0.26.2-pg18 >/dev/null
+docker run -d --name "$P-db" --network "$P" -e POSTGRES_USER=leynor -e POSTGRES_PASSWORD=smoke -e POSTGRES_DB=leynor paradedb/paradedb:0.26.2-pg18 >/dev/null
 docker run -d --name "$P-web" --network "$P" "${ENV[@]}" "$IMAGE" >/dev/null
 docker run -d --name "$P-q" --network "$P" "${ENV[@]}" "$IMAGE" python manage.py qcluster >/dev/null
 

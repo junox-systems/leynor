@@ -21,7 +21,7 @@ services:
     # reaches the database as db:5432 on the compose network, so a local
     # Postgres on 5432 cannot clash.
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-leynor}"]
       interval: 5s
       timeout: 5s
       retries: 5

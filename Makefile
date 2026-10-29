@@ -77,7 +77,7 @@ dev-ps ps:
 
 .PHONY: dev-psql
 dev-psql:
-	docker compose -f dev/docker-compose.dev.yml exec db psql -U postgres -d db
+	docker compose -f dev/docker-compose.dev.yml exec db psql -U postgres -d $${POSTGRES_DB:-leynor}
 
 .PHONY: dev-bash bash
 dev-bash bash:

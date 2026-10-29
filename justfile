@@ -89,7 +89,7 @@ dev-ps:
 alias ps := dev-ps
 
 dev-psql:
-    {{compose}} exec db psql -U postgres -d db
+    {{compose}} exec db psql -U postgres -d ${POSTGRES_DB:-leynor}
 
 dev-bash:
     {{compose}} exec app bash
