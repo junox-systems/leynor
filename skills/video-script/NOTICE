@@ -1,0 +1,13 @@
+# NOTICE
+
+`skills/video-script` is vendored from
+[xnomad-dev/claude-skills](https://github.com/xnomad-dev/claude-skills),
+directory `video-script-writer/` (frontmatter name: `video-script`).
+
+Upstream ships no LICENSE file, so no explicit rights are granted by the
+author. Vendored here for local, private use only. Do not redistribute this
+directory, and do not treat its presence as a licence grant. If upstream adds
+a licence, replace this file with their terms.
+
+Only `video-script-writer` was taken from that collection; the other skills in
+the repo (`ad-copy-generator`, `gmail-daily-summarizer`) were not vendored.
