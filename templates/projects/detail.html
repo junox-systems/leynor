@@ -11,10 +11,15 @@
         <div class="min-w-0">
             <h2 class="text-2xl font-semibold tracking-tight text-balance">{{ project.title }}</h2>
             <div class="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                <span class="font-mono text-xs">{{ project.slug }}</span>
-                <span aria-hidden="true">·</span>
+                {% if project.client %}<span>{{ project.client }}</span>{% endif %}
                 <span>Started {{ project.created_at|date:"j M Y" }}</span>
+                {% if project.archived %}
+                    <c-badge variant="secondary">Archived</c-badge>
+                {% endif %}
             </div>
+            {% if project.description %}
+                <p class="text-muted-foreground mt-3 max-w-prose text-sm text-pretty">{{ project.description }}</p>
+            {% endif %}
         </div>
         <c-btn href="{% url 'campaign_new' project.pk %}">New campaign</c-btn>
     </header>
@@ -36,7 +41,6 @@
                             <td>
                                 <a href="{% url 'campaign_detail' campaign.pk %}"
                                    class="font-medium underline-offset-4 hover:underline">{{ campaign.title }}</a>
-                                <div class="text-muted-foreground mt-0.5 font-mono text-xs">{{ campaign.slug }}</div>
                             </td>
                             <td class="hidden sm:table-cell">{{ campaign.get_goal_display }}</td>
                             <td class="text-muted-foreground text-end text-xs">{{ campaign.updated_at|date:"j M Y" }}</td>

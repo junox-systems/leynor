@@ -28,6 +28,19 @@ def _campaign(request, pk):
 
 
 @login_required
+def campaign_list(request):
+    org = _organization(request)
+    campaigns = (
+        Campaign.objects.filter(
+            project__organization=org, project__status=Project.Status.ACTIVE
+        ).select_related("project")
+        if org
+        else Campaign.objects.none()
+    )
+    return render(request, "campaigns/list.html", {"campaigns": campaigns})
+
+
+@login_required
 def campaign_detail(request, pk):
     campaign = _campaign(request, pk)
     return render(

@@ -32,11 +32,9 @@ class CampaignViewTestCase(TestCase):
     def setUp(self):
         self.user = make_user("alice")
         self.org = make_org(self.user)
-        self.project = Project.start(
-            organization=self.org, title="Works", slug="works"
-        )
+        self.project = Project.start(organization=self.org, title="Works")
         self.campaign = Campaign.objects.create(
-            project=self.project, title="Launch", slug="launch"
+            project=self.project, title="Launch"
         )
         self.client.force_login(self.user)
         self.detail = reverse("campaign_detail", args=[self.campaign.pk])
@@ -53,12 +51,8 @@ class AccessTests(CampaignViewTestCase):
     def test_another_organizations_campaign_is_a_404(self):
         outsider = make_user("otto")
         other = make_org(outsider, name="Other")
-        their_project = Project.start(
-            organization=other, title="Theirs", slug="theirs"
-        )
-        theirs = Campaign.objects.create(
-            project=their_project, title="Theirs", slug="theirs"
-        )
+        their_project = Project.start(organization=other, title="Theirs")
+        theirs = Campaign.objects.create(project=their_project, title="Theirs")
         self.client.force_login(outsider)
 
         assert (
@@ -79,23 +73,27 @@ class CreateTests(CampaignViewTestCase):
     def test_a_campaign_is_briefed_on_its_project(self):
         response = self.client.post(
             self.new,
-            {"title": "Second Brief", "slug": "", "goal": "shares", "audience": "founders"},
+            {
+                "title": "Second Brief",
+                "goal": "shares",
+                "audience": "founders",
+            },
         )
         campaign = Campaign.objects.get(title="Second Brief")
         assert response.status_code == 302
         assert response["Location"] == reverse("campaign_detail", args=[campaign.pk])
         assert campaign.project == self.project
-        assert campaign.slug == "second-brief"
+        assert campaign.goal == "shares"
+        assert campaign.audience == "founders"
         assert messages_of(response) == ["Second Brief briefed."]
 
-    def test_a_duplicate_slug_is_a_form_error_not_a_500(self):
+    def test_campaigns_may_share_a_title(self):
         response = self.client.post(
             self.new,
-            {"title": "Clash", "slug": "launch", "goal": "saves", "audience": ""},
+            {"title": "Launch", "goal": "saves", "audience": ""},
         )
-        assert response.status_code == 200
-        assert Campaign.objects.filter(slug="launch").count() == 1
-        assert "already uses that slug" in response.content.decode()
+        assert response.status_code == 302
+        assert Campaign.objects.filter(title="Launch").count() == 2
 
 
 class DetailTests(CampaignViewTestCase):
@@ -110,3 +108,27 @@ class DetailTests(CampaignViewTestCase):
         body = self.client.get(self.detail).content.decode()
         assert "No outputs yet" in body
         assert "Spark, Hook, Board, Look, Voice, Print" in body
+
+
+class ListTests(CampaignViewTestCase):
+    def test_the_list_shows_campaigns_with_their_project(self):
+        other = Project.start(organization=self.org, title="Second")
+        Campaign.objects.create(project=other, title="Second brief")
+
+        body = self.client.get(reverse("campaigns")).content.decode()
+        assert "Launch" in body
+        assert "Second brief" in body
+        assert "Works" in body
+
+    def test_archived_projects_stay_out_of_the_list(self):
+        self.project.status = Project.Status.ARCHIVED
+        self.project.save()
+
+        body = self.client.get(reverse("campaigns")).content.decode()
+        assert "No campaigns yet" in body
+
+    def test_the_empty_state_teaches_the_hierarchy(self):
+        Campaign.objects.all().delete()
+        body = self.client.get(reverse("campaigns")).content.decode()
+        assert "No campaigns yet" in body
+        assert "inside a project" in body

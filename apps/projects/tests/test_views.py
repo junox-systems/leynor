@@ -33,7 +33,10 @@ class ProjectViewTestCase(TestCase):
         self.user = make_user("alice")
         self.org = make_org(self.user)
         self.project = Project.start(
-            organization=self.org, title="Works", slug="works"
+            organization=self.org,
+            title="Works",
+            client="Flying Eyes",
+            description="Debut album campaign.",
         )
         self.client.force_login(self.user)
         self.detail = reverse("project_detail", args=[self.project.pk])
@@ -49,7 +52,7 @@ class AccessTests(ProjectViewTestCase):
     def test_another_organizations_project_is_a_404(self):
         outsider = make_user("otto")
         other = make_org(outsider, name="Other")
-        theirs = Project.start(organization=other, title="Theirs", slug="theirs")
+        theirs = Project.start(organization=other, title="Theirs")
         self.client.force_login(outsider)
 
         assert (
@@ -70,10 +73,11 @@ class ListTests(ProjectViewTestCase):
     def test_the_list_shows_only_the_sessions_organization(self):
         outsider = make_user("otto")
         other = make_org(outsider, name="Other")
-        Project.start(organization=other, title="Theirs", slug="theirs")
+        Project.start(organization=other, title="Theirs")
 
         body = self.client.get(reverse("projects")).content.decode()
         assert "Works" in body
+        assert "Flying Eyes" in body
         assert "Theirs" not in body
 
     def test_the_empty_state_teaches_the_hierarchy(self):
@@ -84,31 +88,37 @@ class ListTests(ProjectViewTestCase):
 
 
 class CreateTests(ProjectViewTestCase):
-    def test_the_slug_comes_from_the_title_when_left_empty(self):
+    def test_a_project_records_its_client_and_description(self):
         response = self.client.post(
-            reverse("project_new"), {"title": "A Second Project", "slug": ""}
+            reverse("project_new"),
+            {
+                "title": "A Second Project",
+                "client": "Other Brand",
+                "description": "Spring launch.",
+            },
         )
         project = Project.objects.get(title="A Second Project")
         assert response.status_code == 302
         assert response["Location"] == reverse("project_detail", args=[project.pk])
-        assert project.slug == "a-second-project"
+        assert project.client == "Other Brand"
+        assert project.description == "Spring launch."
 
-    def test_a_duplicate_slug_is_a_form_error_not_a_500(self):
+    def test_two_projects_may_share_a_title(self):
         response = self.client.post(
-            reverse("project_new"), {"title": "Clash", "slug": "works"}
+            reverse("project_new"),
+            {"title": "Works", "client": "", "description": ""},
         )
-        assert response.status_code == 200
-        assert Project.objects.filter(slug="works").count() == 1
-        assert "already uses that slug" in response.content.decode()
+        assert response.status_code == 302
+        assert Project.objects.filter(title="Works").count() == 2
 
 
 class DetailTests(ProjectViewTestCase):
     def test_the_project_lists_its_campaigns(self):
-        Campaign.objects.create(
-            project=self.project, title="Launch", slug="launch"
-        )
+        Campaign.objects.create(project=self.project, title="Launch")
         body = self.client.get(self.detail).content.decode()
         assert "Works" in body
+        assert "Flying Eyes" in body
+        assert "Debut album campaign." in body
         assert "Launch" in body
 
     def test_a_project_without_campaigns_teaches_the_next_step(self):
@@ -118,9 +128,7 @@ class DetailTests(ProjectViewTestCase):
 
 class DeleteTests(ProjectViewTestCase):
     def test_deleting_a_project_takes_campaigns_and_reels_with_it(self):
-        campaign = Campaign.objects.create(
-            project=self.project, title="Launch", slug="launch"
-        )
+        campaign = Campaign.objects.create(project=self.project, title="Launch")
         reel = Reel.start(campaign=campaign, title="Flying Eyes", slug="flying-eyes")
 
         response = self.client.post(

@@ -1,0 +1,62 @@
+{% extends "base_app.html" %}
+
+{% block title %}Reels — {{ app_name }}{% endblock %}
+{% block page_title %}Reels{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <p class="text-muted-foreground text-sm">
+            Every reel in this organization. A reel belongs to one campaign; its six gates decide its state.
+        </p>
+        <c-btn href="{% url 'campaigns' %}" variant="outline">Campaigns</c-btn>
+    </div>
+
+    {% if reels %}
+        <c-table>
+            <thead>
+                <tr>
+                    <th scope="col">Reel</th>
+                    <th scope="col" class="hidden sm:table-cell">Campaign</th>
+                    <th scope="col" class="hidden sm:table-cell">Route</th>
+                    <th scope="col">Now</th>
+                    <th scope="col" class="text-end">Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reel in reels %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'reel_detail' reel.pk %}"
+                               class="font-medium underline-offset-4 hover:underline">{{ reel.title }}</a>
+                            <div class="text-muted-foreground mt-0.5 font-mono text-xs">{{ reel.slug }}</div>
+                        </td>
+                        <td class="hidden sm:table-cell">
+                            <a href="{% url 'campaign_detail' reel.campaign.pk %}"
+                               class="underline-offset-4 hover:underline">{{ reel.campaign.title }}</a>
+                            <div class="text-muted-foreground mt-0.5 text-xs">{{ reel.campaign.project.title }}</div>
+                        </td>
+                        <td class="hidden sm:table-cell"><c-route-dots :unit="reel" /></td>
+                        <td>
+                            {% if reel.complete %}
+                                <c-badge variant="secondary">Complete</c-badge>
+                            {% elif reel.current_gate.result == "rejected" %}
+                                <c-badge variant="destructive">Sent back</c-badge>
+                            {% else %}
+                                <span class="text-sm">{{ reel.summary }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted-foreground text-end text-xs">{{ reel.updated_at|date:"j M Y" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </c-table>
+    {% else %}
+        <c-empty title="No reels yet"
+                 description="A reel is the Instagram output of a campaign: Spark, Hook, Board, Look, Voice, Print. Open a campaign to start one.">
+            <c-slot name="icon"><c-icon.film /></c-slot>
+            <c-btn href="{% url 'campaigns' %}">Campaigns</c-btn>
+        </c-empty>
+    {% endif %}
+</div>
+{% endblock %}

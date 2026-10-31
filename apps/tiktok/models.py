@@ -10,8 +10,3 @@ class TikTok(Unit):
 
     class Meta:
         ordering = ["-created_at"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["campaign", "slug"], name="unique_tiktok_slug_per_campaign"
-            )
-        ]

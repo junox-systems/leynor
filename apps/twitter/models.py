@@ -10,8 +10,3 @@ class Tweet(Unit):
 
     class Meta:
         ordering = ["-created_at"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["campaign", "slug"], name="unique_twitter_slug_per_campaign"
-            )
-        ]

@@ -6,9 +6,9 @@ from .models import Project
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ("title", "slug", "organization", "created_at")
-    list_filter = ("organization",)
-    search_fields = ("title", "slug")
+    list_display = ("title", "client", "organization", "status", "created_at")
+    list_filter = ("status", "organization")
+    search_fields = ("title", "client")
 
 
 auditlog.register(Project)

@@ -6,9 +6,9 @@ from .models import Campaign
 
 @admin.register(Campaign)
 class CampaignAdmin(admin.ModelAdmin):
-    list_display = ("title", "slug", "project", "goal", "created_at")
+    list_display = ("title", "project", "goal", "created_at")
     list_filter = ("goal", "project__organization")
-    search_fields = ("title", "slug")
+    search_fields = ("title",)
 
 
 auditlog.register(Campaign)

@@ -2,8 +2,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 from django.views.generic import TemplateView
 
-from apps.campaigns.models import Campaign
 from apps.orgs.rbac import current_session
+from apps.projects.models import Project
 
 from .panels import activity_payload
 
@@ -11,7 +11,7 @@ RECENT = 5
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
-    """Today: the campaigns in play, and what waits on a person."""
+    """The organization at a glance: projects, their campaigns, their outputs."""
 
     template_name = "dashboard/index.html"
 
@@ -22,21 +22,35 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             context.update(rows=[], awaiting=[], total=0)
             return context
 
-        campaigns = list(
-            Campaign.objects.filter(
-                project__organization=session.organization
-            ).select_related("project")
+        projects = list(
+            Project.objects.filter(
+                organization=session.organization,
+                status=Project.Status.ACTIVE,
+            ).prefetch_related("campaigns")
         )
         rows = [
-            {"campaign": campaign, "units": campaign.units()} for campaign in campaigns
+            {
+                "project": project,
+                "campaigns": [
+                    {"campaign": campaign, "units": campaign.units()}
+                    for campaign in project.campaigns.all()
+                ],
+            }
+            for project in projects
         ]
         awaiting = [
-            {"campaign": row["campaign"], "unit": unit["unit"], "url": unit["url"]}
+            {
+                "project": row["project"],
+                "campaign": entry["campaign"],
+                "unit": unit["unit"],
+                "url": unit["url"],
+            }
             for row in rows
-            for unit in row["units"]
+            for entry in row["campaigns"]
+            for unit in entry["units"]
             if getattr(unit["unit"], "needs_person", False)
         ]
-        context.update(rows=rows[:RECENT], awaiting=awaiting, total=len(campaigns))
+        context.update(rows=rows[:RECENT], awaiting=awaiting, total=len(projects))
         return context
 
 

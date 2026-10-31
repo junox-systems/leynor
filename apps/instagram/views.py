@@ -12,6 +12,7 @@ from apps.instagram.forms import ReelForm
 from apps.instagram.gates import GateResult
 from apps.instagram.models import GateOutOfOrder, Reel
 from apps.orgs.rbac import current_session
+from apps.projects.models import Project
 
 
 def _organization(request):
@@ -38,6 +39,22 @@ def _reel(request, pk):
         pk=pk,
         campaign__project__organization=org,
     )
+
+
+@login_required
+def reel_list(request):
+    org = _organization(request)
+    reels = (
+        Reel.objects.filter(
+            campaign__project__organization=org,
+            campaign__project__status=Project.Status.ACTIVE,
+        )
+        .select_related("campaign__project")
+        .prefetch_related("gates")
+        if org
+        else Reel.objects.none()
+    )
+    return render(request, "instagram/list.html", {"reels": reels})
 
 
 @login_required

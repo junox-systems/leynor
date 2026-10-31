@@ -1,5 +1,4 @@
 import pytest
-from django.db import IntegrityError
 from django.test import TestCase
 
 from apps.campaigns.models import Campaign
@@ -23,24 +22,12 @@ class CampaignTests(TestCase):
             email="a@example.com", username="a", password="pw"
         )
         self.org = make_org(self.user)
-        self.project = Project.start(
-            organization=self.org, title="Works", slug="works"
-        )
-        self.campaign = Campaign.objects.create(
-            project=self.project, title="Launch", slug="launch"
-        )
+        self.project = Project.start(organization=self.org, title="Works")
+        self.campaign = Campaign.objects.create(project=self.project, title="Launch")
 
-    def test_slugs_are_unique_per_project(self):
-        with pytest.raises(IntegrityError):
-            Campaign.objects.create(
-                project=self.project, title="Other", slug="launch"
-            )
-
-    def test_the_same_slug_is_free_in_another_project(self):
-        other = Project.start(organization=self.org, title="Second", slug="second")
-        assert (
-            Campaign.objects.create(project=other, title="Launch", slug="launch").pk
-        )
+    def test_campaigns_may_share_a_title(self):
+        second = Campaign.objects.create(project=self.project, title="Launch")
+        assert second.pk
 
     def test_tenancy_resolves_through_the_project(self):
         assert self.campaign.organization == self.org
@@ -54,9 +41,9 @@ class CampaignTests(TestCase):
         from apps.twitter.models import Tweet
 
         reel = Reel.start(campaign=self.campaign, title="Flying Eyes", slug="flying-eyes")
-        TikTok.objects.create(campaign=self.campaign, title="Cut", slug="cut")
-        Tweet.objects.create(campaign=self.campaign, title="Thread", slug="thread")
-        Post.objects.create(campaign=self.campaign, title="Essay", slug="essay")
+        TikTok.objects.create(campaign=self.campaign, title="Cut")
+        Tweet.objects.create(campaign=self.campaign, title="Thread")
+        Post.objects.create(campaign=self.campaign, title="Essay")
 
         rows = {row["channel"]: row for row in units(self.campaign)}
         assert set(rows) == {"reel", "tiktok", "twitter", "linkedin"}

@@ -24,17 +24,12 @@ class Campaign(BaseModel):
     project = models.ForeignKey(
         "projects.Project", on_delete=models.CASCADE, related_name="campaigns"
     )
-    slug = models.SlugField(max_length=64)
     title = models.CharField(max_length=120)
     goal = models.CharField(max_length=8, choices=Goal.choices, default=Goal.SAVES)
     audience = models.CharField(max_length=200, blank=True)
 
-    class Meta(BaseModel.Meta):
-        constraints = [
-            models.UniqueConstraint(
-                fields=["project", "slug"], name="unique_campaign_slug_per_project"
-            )
-        ]
+    class Meta:
+        ordering = ["-created_at"]
 
     def __str__(self):
         return self.title
@@ -57,7 +52,6 @@ class Unit(BaseModel):
     campaign = models.ForeignKey(
         Campaign, on_delete=models.CASCADE, related_name="+"
     )
-    slug = models.SlugField(max_length=64)
     title = models.CharField(max_length=120)
 
     class Meta:

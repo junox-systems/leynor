@@ -10,22 +10,32 @@ from apps.core.models import BaseModel
 
 
 class Project(BaseModel):
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        ARCHIVED = "archived", "Archived"
+
     organization = models.ForeignKey(
         "orgs.Organization", on_delete=models.CASCADE, related_name="projects"
     )
-    slug = models.SlugField(max_length=64)
     title = models.CharField(max_length=120)
-
-    class Meta(BaseModel.Meta):
-        constraints = [
-            models.UniqueConstraint(
-                fields=["organization", "slug"], name="unique_project_slug_per_org"
-            )
-        ]
+    client = models.CharField(max_length=120, blank=True)
+    description = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=8, choices=Status.choices, default=Status.ACTIVE
+    )
 
     def __str__(self):
         return self.title
 
     @classmethod
-    def start(cls, *, organization, title, slug):
-        return cls.objects.create(organization=organization, title=title, slug=slug)
+    def start(cls, *, organization, title, client="", description=""):
+        return cls.objects.create(
+            organization=organization,
+            title=title,
+            client=client,
+            description=description,
+        )
+
+    @property
+    def archived(self) -> bool:
+        return self.status == self.Status.ARCHIVED

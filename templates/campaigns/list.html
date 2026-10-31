@@ -1,0 +1,51 @@
+{% extends "base_app.html" %}
+
+{% block title %}Campaigns — {{ app_name }}{% endblock %}
+{% block page_title %}Campaigns{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <p class="text-muted-foreground text-sm">
+            Every campaign in this organization, under the project that holds it.
+        </p>
+        <c-btn href="{% url 'projects' %}" variant="outline">Projects</c-btn>
+    </div>
+
+    {% if campaigns %}
+        <c-table>
+            <thead>
+                <tr>
+                    <th scope="col">Campaign</th>
+                    <th scope="col" class="hidden sm:table-cell">Project</th>
+                    <th scope="col" class="hidden sm:table-cell">Goal</th>
+                    <th scope="col" class="text-end">Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for campaign in campaigns %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'campaign_detail' campaign.pk %}"
+                               class="font-medium underline-offset-4 hover:underline">{{ campaign.title }}</a>
+
+                        </td>
+                        <td class="hidden sm:table-cell">
+                            <a href="{% url 'project_detail' campaign.project.pk %}"
+                               class="underline-offset-4 hover:underline">{{ campaign.project.title }}</a>
+                        </td>
+                        <td class="hidden sm:table-cell">{{ campaign.get_goal_display }}</td>
+                        <td class="text-muted-foreground text-end text-xs">{{ campaign.updated_at|date:"j M Y" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </c-table>
+    {% else %}
+        <c-empty title="No campaigns yet"
+                 description="A campaign is one brief inside a project. Start a project, then brief the first campaign.">
+            <c-slot name="icon"><c-icon.megaphone /></c-slot>
+            <c-btn href="{% url 'projects' %}">Projects</c-btn>
+        </c-empty>
+    {% endif %}
+</div>
+{% endblock %}

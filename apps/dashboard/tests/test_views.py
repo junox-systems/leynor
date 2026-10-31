@@ -59,8 +59,8 @@ class DashboardViewTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get(reverse("dashboard"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "One brief, every channel")
-        self.assertContains(response, "No campaigns yet")
+        self.assertContains(response, "From project to output")
+        self.assertContains(response, "No projects yet")
         # No island and no payload: the dashboard is plain Django + Cotton.
         self.assertNotContains(response, "dashboard-payload")
         self.assertEqual(response.context["total"], 0)
@@ -169,7 +169,9 @@ class AppNavTests(TestCase):
         }
         self.assertEqual(list(groups), ["Application", "Account"])
         # The product's screens.
-        self.assertEqual(groups["Application"], ["Dashboard", "Projects"])
+        self.assertEqual(
+            groups["Application"], ["Dashboard", "Projects", "Campaigns", "Reels"]
+        )
         # Everything that changes who you are or who you belong to.
         self.assertEqual(
             groups["Account"],

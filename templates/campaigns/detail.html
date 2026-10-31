@@ -11,8 +11,6 @@
         <div class="min-w-0">
             <h2 class="text-2xl font-semibold tracking-tight text-balance">{{ campaign.title }}</h2>
             <div class="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                <span class="font-mono text-xs">{{ campaign.slug }}</span>
-                <span aria-hidden="true">·</span>
                 <span>Goal: {{ campaign.get_goal_display }}</span>
                 {% if campaign.audience %}
                     <span aria-hidden="true">·</span>

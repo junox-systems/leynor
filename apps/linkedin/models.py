@@ -10,8 +10,3 @@ class Post(Unit):
 
     class Meta:
         ordering = ["-created_at"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["campaign", "slug"], name="unique_linkedin_slug_per_campaign"
-            )
-        ]

@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.utils.text import slugify
 
 from apps.instagram.models import Reel
-from apps.projects.specs import SLUG
+from apps.video.spec import SLUG
 
 
 class ReelForm(forms.ModelForm):

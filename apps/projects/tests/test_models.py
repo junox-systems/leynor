@@ -1,5 +1,3 @@
-import pytest
-from django.db import IntegrityError
 from django.test import TestCase
 
 from apps.orgs.models import OWNER, Membership, Organization, Role
@@ -21,22 +19,32 @@ class ProjectTests(TestCase):
         )
         self.org = make_org(self.user)
 
-    def test_start_creates_a_project_in_the_organization(self):
-        project = Project.start(organization=self.org, title="Works", slug="works")
+    def test_start_creates_an_active_workspace_in_the_organization(self):
+        project = Project.start(organization=self.org, title="Works")
         assert project.organization == self.org
+        assert project.status == Project.Status.ACTIVE
+        assert project.archived is False
+        assert project.client == ""
+        assert project.description == ""
         assert project.campaigns.count() == 0
 
-    def test_slugs_are_unique_per_organization(self):
-        Project.start(organization=self.org, title="Works", slug="works")
-        with pytest.raises(IntegrityError):
-            Project.start(organization=self.org, title="Other", slug="works")
-
-    def test_the_same_slug_is_free_in_another_organization(self):
-        other = make_org(
-            User.objects.create_user(
-                email="b@example.com", username="b", password="pw"
-            ),
-            name="Other",
+    def test_start_takes_a_client_and_a_description(self):
+        project = Project.start(
+            organization=self.org,
+            title="Works",
+            client="Flying Eyes",
+            description="Debut album campaign.",
         )
-        project = Project.start(organization=other, title="Works", slug="works")
-        assert project.pk
+        assert project.client == "Flying Eyes"
+        assert project.description == "Debut album campaign."
+
+    def test_two_projects_may_share_a_title(self):
+        Project.start(organization=self.org, title="Works")
+        second = Project.start(organization=self.org, title="Works")
+        assert second.pk
+
+    def test_archived_projects_stay_readable(self):
+        project = Project.start(organization=self.org, title="Old work")
+        project.status = Project.Status.ARCHIVED
+        project.save()
+        assert project.archived is True

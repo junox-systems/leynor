@@ -10,10 +10,10 @@
 
     <section class="flex flex-wrap items-end justify-between gap-4">
         <div class="max-w-xl">
-            <h2 class="text-2xl font-semibold tracking-tight">One brief, every channel</h2>
+            <h2 class="text-2xl font-semibold tracking-tight">From project to output</h2>
             <p class="text-muted-foreground mt-1.5 text-sm text-pretty">
-                A campaign holds the brief. Each output unit walks its own route: the reel
-                waits on Board and Print, and passes the rest on evidence.
+                A project holds campaigns. A campaign holds the brief and the channel units
+                that answer it. Only the reel gates its work: Spark, Hook, Board, Look, Voice, Print.
             </p>
         </div>
         <c-btn href="{% url 'project_new' %}">Start a project</c-btn>
@@ -28,7 +28,13 @@
                         <div class="min-w-0 flex-1">
                             <a href="{{ row.url }}"
                                class="font-medium underline-offset-4 hover:underline">{{ row.unit.title }}</a>
-                            <p class="text-muted-foreground mt-0.5 text-sm">{{ row.campaign.title }} · {{ row.unit.summary }}</p>
+                            <p class="text-muted-foreground mt-0.5 text-sm">
+                                <a href="{% url 'project_detail' row.project.pk %}" class="underline-offset-4 hover:underline">{{ row.project.title }}</a>
+                                <span aria-hidden="true">/</span>
+                                <a href="{% url 'campaign_detail' row.campaign.pk %}" class="underline-offset-4 hover:underline">{{ row.campaign.title }}</a>
+                                <span aria-hidden="true">/</span>
+                                {{ row.unit.summary }}
+                            </p>
                         </div>
                         {% if row.unit.current_gate.result == "rejected" %}
                             <c-badge variant="destructive">Sent back</c-badge>
@@ -42,59 +48,70 @@
         </section>
     {% endif %}
 
-    <section class="space-y-3" aria-labelledby="campaigns-title">
+    <section class="space-y-3" aria-labelledby="projects-title">
         <div class="flex items-center justify-between gap-4">
-            <h3 id="campaigns-title" class="text-sm font-semibold">Recent campaigns</h3>
+            <h3 id="projects-title" class="text-sm font-semibold">Recent projects</h3>
             {% if total > 5 %}
                 <a href="{% url 'projects' %}" class="text-muted-foreground text-sm underline-offset-4 hover:underline">
-                    All projects
+                    All {{ total }}
                 </a>
             {% endif %}
         </div>
 
         {% if rows %}
-            <c-table>
-                <thead>
-                    <tr>
-                        <th scope="col">Campaign</th>
-                        <th scope="col" class="hidden sm:table-cell">Outputs</th>
-                        <th scope="col" class="text-end">Updated</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in rows %}
-                        <tr>
-                            <td>
-                                <a href="{% url 'campaign_detail' row.campaign.pk %}"
-                                   class="font-medium underline-offset-4 hover:underline">{{ row.campaign.title }}</a>
-                                <div class="text-muted-foreground mt-0.5 text-xs">{{ row.campaign.project.title }}</div>
-                            </td>
-                            <td class="hidden sm:table-cell">
-                                {% for unit in row.units %}
-                                    {% with piece=unit.unit %}
-                                        <div class="flex items-center gap-2">
-                                            {% if unit.url %}
-                                                <a href="{{ unit.url }}" class="text-sm underline-offset-4 hover:underline">{{ piece.title }}</a>
-                                            {% else %}
-                                                <span class="text-sm">{{ piece.title }}</span>
-                                            {% endif %}
-                                            {% if piece.has_route %}<c-route-dots :unit="piece" />{% endif %}
-                                            <span class="text-muted-foreground text-xs">{{ piece.summary }}</span>
+            <div class="space-y-4">
+                {% for row in rows %}
+                    <section class="rounded-lg border" aria-label="{{ row.project.title }}">
+                        <header class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                            <div class="min-w-0">
+                                <a href="{% url 'project_detail' row.project.pk %}"
+                                   class="font-medium underline-offset-4 hover:underline">{{ row.project.title }}</a>
+                                {% if row.project.client %}
+                                    <span class="text-muted-foreground ml-2 text-xs">{{ row.project.client }}</span>
+                                {% endif %}
+                            </div>
+                            <span class="text-muted-foreground text-xs">{{ row.project.updated_at|date:"j M" }}</span>
+                        </header>
+
+                        {% if row.campaigns %}
+                            <ul class="divide-border divide-y border-t">
+                                {% for entry in row.campaigns %}
+                                    <li class="px-4 py-3">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <a href="{% url 'campaign_detail' entry.campaign.pk %}"
+                                               class="text-sm font-medium underline-offset-4 hover:underline">{{ entry.campaign.title }}</a>
+                                            <c-badge variant="secondary">{{ entry.campaign.get_goal_display }}</c-badge>
                                         </div>
-                                    {% endwith %}
-                                {% empty %}
-                                    <span class="text-muted-foreground text-xs">No outputs yet</span>
+                                        <div class="mt-1.5 space-y-1">
+                                            {% for unit in entry.units %}
+                                                {% with piece=unit.unit %}
+                                                    <div class="flex flex-wrap items-center gap-2">
+                                                        {% if unit.url %}
+                                                            <a href="{{ unit.url }}" class="text-sm underline-offset-4 hover:underline">{{ piece.title }}</a>
+                                                        {% else %}
+                                                            <span class="text-sm">{{ piece.title }}</span>
+                                                        {% endif %}
+                                                        {% if piece.has_route %}<c-route-dots :unit="piece" />{% endif %}
+                                                        <span class="text-muted-foreground text-xs">{{ piece.summary }}</span>
+                                                    </div>
+                                                {% endwith %}
+                                            {% empty %}
+                                                <span class="text-muted-foreground text-xs">No outputs yet</span>
+                                            {% endfor %}
+                                        </div>
+                                    </li>
                                 {% endfor %}
-                            </td>
-                            <td class="text-muted-foreground text-end text-xs">{{ row.campaign.updated_at|date:"j M" }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </c-table>
+                            </ul>
+                        {% else %}
+                            <p class="text-muted-foreground border-t px-4 py-3 text-sm">No campaigns yet</p>
+                        {% endif %}
+                    </section>
+                {% endfor %}
+            </div>
         {% else %}
-            <c-empty title="No campaigns yet"
-                     description="A project holds the briefs; a campaign turns one brief into output units. Start a project, brief a campaign, then add its first reel.">
-                <c-slot name="icon"><c-icon.film /></c-slot>
+            <c-empty title="No projects yet"
+                     description="A project is the workspace. Brief a campaign inside it, then add the channel units that carry the brief. The reel walks six gates.">
+                <c-slot name="icon"><c-icon.folder /></c-slot>
                 <c-btn href="{% url 'project_new' %}">Start a project</c-btn>
             </c-empty>
         {% endif %}

@@ -37,6 +37,8 @@ def _position(step: str) -> int:
 
 
 class Reel(Unit):
+    # The spec, the visual seed and the render file names are keyed by slug.
+    slug = models.SlugField(max_length=64)
     # A Reel is 60-120 seconds; the same window the spec enforces.
     target_seconds = models.PositiveSmallIntegerField(
         default=60, validators=[MinValueValidator(60), MaxValueValidator(120)]

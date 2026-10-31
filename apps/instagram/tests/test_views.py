@@ -25,9 +25,9 @@ def make_org(user, name="Acme"):
     return org
 
 
-def make_campaign(org, slug="launch", title="Launch"):
-    project = Project.start(organization=org, title="Works", slug=f"works-{slug}")
-    return Campaign.objects.create(project=project, title=title, slug=slug)
+def make_campaign(org, title="Launch"):
+    project = Project.start(organization=org, title=f"Works {title}")
+    return Campaign.objects.create(project=project, title=title)
 
 
 def messages_of(response):
@@ -59,7 +59,7 @@ class AccessTests(ReelViewTestCase):
     def test_another_organizations_reel_is_a_404(self):
         outsider = make_user("otto")
         other = make_org(outsider, name="Other")
-        theirs_campaign = make_campaign(other, slug="theirs")
+        theirs_campaign = make_campaign(other, title="Theirs")
         theirs = Reel.start(campaign=theirs_campaign, title="Theirs", slug="theirs")
         self.client.force_login(outsider)
 
@@ -168,3 +168,29 @@ class DeleteTests(ReelViewTestCase):
     def test_delete_is_post_only(self):
         response = self.client.get(reverse("reel_delete", args=[self.reel.pk]))
         assert response.status_code == 405
+
+
+class ListTests(ReelViewTestCase):
+    def test_the_list_shows_reels_with_their_campaign_and_project(self):
+        body = self.client.get(reverse("reels")).content.decode()
+        assert "Flying Eyes" in body
+        assert "Launch" in body
+        assert "Works" in body
+        assert "On Spark" in body
+
+    def test_another_organizations_reel_stays_out(self):
+        outsider = make_user("otto")
+        other = make_org(outsider, name="Other")
+        theirs_campaign = make_campaign(other, title="Theirs")
+        Reel.start(campaign=theirs_campaign, title="Theirs", slug="theirs")
+        self.client.force_login(outsider)
+
+        body = self.client.get(reverse("reels")).content.decode()
+        assert "Theirs" in body
+        assert "Flying Eyes" not in body
+
+    def test_the_empty_state_points_at_campaigns(self):
+        Reel.objects.all().delete()
+        body = self.client.get(reverse("reels")).content.decode()
+        assert "No reels yet" in body
+        assert "Open a campaign" in body

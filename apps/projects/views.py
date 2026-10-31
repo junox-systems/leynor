@@ -43,7 +43,7 @@ def project_new(request):
     if org is None:
         messages.info(request, "A project belongs to an organization. Create one first.")
         return redirect("orgs")
-    form = ProjectForm(request.POST or None, organization=org)
+    form = ProjectForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         project = Project.start(organization=org, **form.cleaned_data)
         messages.success(request, f"{project.title} created.")

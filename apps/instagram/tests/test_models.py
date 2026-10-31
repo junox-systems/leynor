@@ -19,9 +19,9 @@ def make_org(user, name="Acme"):
     return org
 
 
-def make_campaign(org, slug="launch"):
-    project = Project.start(organization=org, title="Works", slug=f"works-{slug}")
-    return Campaign.objects.create(project=project, title="Launch", slug=slug)
+def make_campaign(org, title="Launch"):
+    project = Project.start(organization=org, title=f"Works {title}")
+    return Campaign.objects.create(project=project, title=title)
 
 
 class RouteTests(TestCase):
@@ -93,7 +93,7 @@ class RouteTests(TestCase):
             Reel.start(campaign=self.campaign, title="Other", slug="flying-eyes")
 
     def test_the_same_slug_is_free_in_another_campaign(self):
-        other = make_campaign(self.org, slug="second")
+        other = make_campaign(self.org, title="Second")
         reel = Reel.start(campaign=other, title="Flying Eyes", slug="flying-eyes")
         assert reel.gates.count() == 6
 
