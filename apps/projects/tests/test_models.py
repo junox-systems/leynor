@@ -1,5 +1,6 @@
 from django.test import TestCase
 
+from apps.brands.models import Brand
 from apps.orgs.models import OWNER, Membership, Organization, Role
 from apps.projects.models import Project
 from apps.users.models import User
@@ -24,19 +25,21 @@ class ProjectTests(TestCase):
         assert project.organization == self.org
         assert project.status == Project.Status.ACTIVE
         assert project.archived is False
-        assert project.client == ""
+        assert project.brand is None
         assert project.description == ""
         assert project.campaigns.count() == 0
 
-    def test_start_takes_a_client_and_a_description(self):
+    def test_start_takes_an_optional_brand_and_a_description(self):
+        brand = Brand.objects.create(organization=self.org, name="Flying Eyes")
         project = Project.start(
             organization=self.org,
             title="Works",
-            client="Flying Eyes",
+            brand=brand,
             description="Debut album campaign.",
         )
-        assert project.client == "Flying Eyes"
+        assert project.brand == brand
         assert project.description == "Debut album campaign."
+        assert list(brand.projects.all()) == [project]
 
     def test_two_projects_may_share_a_title(self):
         Project.start(organization=self.org, title="Works")

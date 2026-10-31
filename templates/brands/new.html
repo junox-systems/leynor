@@ -1,0 +1,19 @@
+{% extends "base_app.html" %}
+
+{% block title %}New brand — {{ app_name }}{% endblock %}
+{% block page_title %}New brand{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-xl space-y-6">
+    <c-breadcrumb back="Brands" back_url="{% url 'brands' %}" current="New" />
+
+    <c-card title="Add a brand"
+            description="Only the name is required. The rest sharpens the voice every campaign speaks in."
+            lead>
+        <c-form>
+            <c-fields :form="form" />
+            <c-btn type="submit">Add</c-btn>
+        </c-form>
+    </c-card>
+</div>
+{% endblock %}

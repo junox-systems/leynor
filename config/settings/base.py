@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.users",
     "apps.projects",
+    "apps.brands",
     "apps.campaigns",
     "apps.instagram",
     "apps.tiktok",

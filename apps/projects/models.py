@@ -18,7 +18,13 @@ class Project(BaseModel):
         "orgs.Organization", on_delete=models.CASCADE, related_name="projects"
     )
     title = models.CharField(max_length=120)
-    client = models.CharField(max_length=120, blank=True)
+    brand = models.ForeignKey(
+        "brands.Brand",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="projects",
+    )
     description = models.TextField(blank=True)
     status = models.CharField(
         max_length=8, choices=Status.choices, default=Status.ACTIVE
@@ -28,11 +34,11 @@ class Project(BaseModel):
         return self.title
 
     @classmethod
-    def start(cls, *, organization, title, client="", description=""):
+    def start(cls, *, organization, title, brand=None, description=""):
         return cls.objects.create(
             organization=organization,
             title=title,
-            client=client,
+            brand=brand,
             description=description,
         )
 

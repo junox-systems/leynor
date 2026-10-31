@@ -1,0 +1,55 @@
+{% extends "base_app.html" %}
+
+{% block title %}Brands — {{ app_name }}{% endblock %}
+{% block page_title %}Brands{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <p class="text-muted-foreground text-sm">
+            The clients this organization works for. A brand sits beside projects; several projects can answer one.
+        </p>
+        <c-btn href="{% url 'brand_new' %}">Add a brand</c-btn>
+    </div>
+
+    {% if brands %}
+        <c-table>
+            <thead>
+                <tr>
+                    <th scope="col">Brand</th>
+                    <th scope="col" class="hidden sm:table-cell">Industry</th>
+                    <th scope="col" class="hidden sm:table-cell">Projects</th>
+                    <th scope="col" class="hidden sm:table-cell">Website</th>
+                    <th scope="col" class="text-end">Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for brand in brands %}
+                    <tr>
+                        <td>
+                            <span class="font-medium">{{ brand.name }}</span>
+                            {% if brand.audience %}
+                                <div class="text-muted-foreground mt-0.5 text-xs">For {{ brand.audience }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="hidden sm:table-cell">{{ brand.industry|default:"—" }}</td>
+                        <td class="hidden sm:table-cell">{{ brand.projects.all|length }}</td>
+                        <td class="hidden sm:table-cell">
+                            {% if brand.website %}
+                                <a href="{{ brand.website }}" rel="noopener" class="underline-offset-4 hover:underline">{{ brand.website }}</a>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td class="text-muted-foreground text-end text-xs">{{ brand.updated_at|date:"j M Y" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </c-table>
+    {% else %}
+        <c-empty title="No brands yet"
+                 description="A brand records who the work is for: its voice, its audience and where it lives. Projects can point at one.">
+            <c-slot name="icon"><c-icon.tag /></c-slot>
+            <c-btn href="{% url 'brand_new' %}">Add a brand</c-btn>
+        </c-empty>
+    {% endif %}
+</div>
+{% endblock %}

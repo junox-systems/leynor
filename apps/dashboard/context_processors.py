@@ -47,6 +47,7 @@ def _groups(is_staff):
                 _item("Projects", "projects", "folder"),
                 _item("Campaigns", "campaigns", "megaphone"),
                 _item("Reels", "reels", "film"),
+                _item("Brands", "brands", "tag"),
             ],
         },
         {"label": "Account", "items": account},

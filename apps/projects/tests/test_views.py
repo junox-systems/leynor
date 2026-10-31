@@ -2,6 +2,7 @@ from django.contrib.messages import get_messages
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.brands.models import Brand
 from apps.campaigns.models import Campaign
 from apps.instagram.models import Reel
 from apps.orgs.models import OWNER, Membership, Organization, Role
@@ -32,10 +33,11 @@ class ProjectViewTestCase(TestCase):
     def setUp(self):
         self.user = make_user("alice")
         self.org = make_org(self.user)
+        self.brand = Brand.objects.create(organization=self.org, name="Flying Eyes")
         self.project = Project.start(
             organization=self.org,
             title="Works",
-            client="Flying Eyes",
+            brand=self.brand,
             description="Debut album campaign.",
         )
         self.client.force_login(self.user)
@@ -88,28 +90,45 @@ class ListTests(ProjectViewTestCase):
 
 
 class CreateTests(ProjectViewTestCase):
-    def test_a_project_records_its_client_and_description(self):
+    def test_a_project_records_its_brand_and_description(self):
         response = self.client.post(
             reverse("project_new"),
             {
                 "title": "A Second Project",
-                "client": "Other Brand",
+                "brand": self.brand.pk,
                 "description": "Spring launch.",
             },
         )
         project = Project.objects.get(title="A Second Project")
         assert response.status_code == 302
         assert response["Location"] == reverse("project_detail", args=[project.pk])
-        assert project.client == "Other Brand"
+        assert project.brand == self.brand
         assert project.description == "Spring launch."
+
+    def test_a_project_may_start_without_a_brand(self):
+        response = self.client.post(
+            reverse("project_new"),
+            {"title": "Unbranded", "brand": "", "description": ""},
+        )
+        assert response.status_code == 302
+        assert Project.objects.get(title="Unbranded").brand is None
 
     def test_two_projects_may_share_a_title(self):
         response = self.client.post(
             reverse("project_new"),
-            {"title": "Works", "client": "", "description": ""},
+            {"title": "Works", "brand": "", "description": ""},
         )
         assert response.status_code == 302
         assert Project.objects.filter(title="Works").count() == 2
+
+    def test_the_brand_choices_come_from_the_session_organization(self):
+        outsider = make_user("otto")
+        other = make_org(outsider, name="Other")
+        Brand.objects.create(organization=other, name="Theirs")
+
+        response = self.client.get(reverse("project_new"))
+        brands = response.context["form"].fields["brand"].queryset
+        assert list(brands) == [self.brand]
 
 
 class DetailTests(ProjectViewTestCase):

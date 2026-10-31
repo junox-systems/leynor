@@ -7,13 +7,14 @@ APPS = Path(__file__).resolve().parents[1] / "apps"
 
 CHANNELS = ("instagram", "tiktok", "twitter", "linkedin")
 ENGINES = ("text", "image", "video")
-CONTAINERS = ("projects", "campaigns")
+CONTAINERS = ("projects", "campaigns", "brands")
 STORES = ("runs",)
 CONTEXTS = CONTAINERS + CHANNELS + ENGINES + STORES
 
 ALLOWED = {
     "projects": set(),
     "campaigns": {"projects"},
+    "brands": set(),
     # A channel may import the campaign layer and every engine.
     "instagram": {"campaigns", "projects", "text", "image", "video"},
     "tiktok": {"campaigns"},

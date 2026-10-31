@@ -39,6 +39,7 @@ apps/           # ALL backend code. Never at project root
   dashboard/    # /dashboard/ + /dashboard/activity/ — overview, activity payload
   orgs/         # orgs, memberships, RBAC roles (rbac.py), email invitations
   projects/     # Project: the workspace campaigns belong to
+  brands/       # Brand: the organization-level client a project works for
   campaigns/    # Campaign brief + Unit/RouteGate bases + unit registry + adapters
   instagram/    # Reel: Instagram's unit, its six-step route, its publisher
   tiktok/       # TikTok unit, publisher stub (no client yet)
@@ -82,7 +83,7 @@ Four layers, one direction: **channel app → engine → store/core**.
 | Store | `runs` | artifact bytes by key |
 | Container | `projects`, `campaigns` | hierarchy only, no channel imports |
 
-- Hierarchy: `Organization → Project → Campaign → channel unit`. A Reel is Instagram's unit; later channels add sibling units under the same campaign.
+- Hierarchy: `Organization → Project → Campaign → channel unit`, with `Brand` beside projects as an optional client reference. A Reel is Instagram's unit; later channels add sibling units under the same campaign.
 - `campaigns.registry` (`UNITS`, `PUBLISHERS`, `UNIT_URLS`) is how campaigns and the dashboard find units. A new channel = one app + one dict entry, no edits elsewhere.
 - `campaigns.models.Unit` and `campaigns.routes.RouteGate` are abstract bases. Each channel subclasses them with its own unit FK, step choices and unique constraint.
 - `Unit.organization` resolves through the campaign. RBAC reads that attribute (`rbac._organization_of`); without it every unit page is denied.

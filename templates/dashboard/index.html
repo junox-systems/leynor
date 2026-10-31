@@ -66,8 +66,8 @@
                             <div class="min-w-0">
                                 <a href="{% url 'project_detail' row.project.pk %}"
                                    class="font-medium underline-offset-4 hover:underline">{{ row.project.title }}</a>
-                                {% if row.project.client %}
-                                    <span class="text-muted-foreground ml-2 text-xs">{{ row.project.client }}</span>
+                                {% if row.project.brand %}
+                                    <span class="text-muted-foreground ml-2 text-xs">{{ row.project.brand.name }}</span>
                                 {% endif %}
                             </div>
                             <span class="text-muted-foreground text-xs">{{ row.project.updated_at|date:"j M" }}</span>

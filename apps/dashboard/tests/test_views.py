@@ -170,7 +170,8 @@ class AppNavTests(TestCase):
         self.assertEqual(list(groups), ["Application", "Account"])
         # The product's screens.
         self.assertEqual(
-            groups["Application"], ["Dashboard", "Projects", "Campaigns", "Reels"]
+            groups["Application"],
+            ["Dashboard", "Projects", "Campaigns", "Reels", "Brands"],
         )
         # Everything that changes who you are or who you belong to.
         self.assertEqual(
