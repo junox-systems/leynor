@@ -71,6 +71,18 @@ class Unit(BaseModel):
         """Tenancy resolves through the campaign, so every unit is scoped."""
         return self.campaign.organization
 
+    @property
+    def has_route(self) -> bool:
+        """True when this unit gates its work; false for a plain post."""
+        return False
+
+    @property
+    def needs_person(self) -> bool:
+        return False
+
+    def summary(self) -> str:
+        return "Draft"
+
 
 class PublicationBase(BaseModel):
     """One published instance of a unit on one channel account."""

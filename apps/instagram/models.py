@@ -11,7 +11,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 
-from apps.campaigns.models import Unit
+from apps.campaigns.models import PublicationBase, Unit
 from apps.campaigns.routes import (
     DECIDED,
     GateOutOfOrder,
@@ -23,7 +23,13 @@ from apps.instagram.gates import Step, gate_kind
 from apps.instagram.steps import resolve
 from apps.video.spec import ReelSpec
 
-__all__ = ["GateOutOfOrder", "GateResult", "Reel", "ReelGate"]
+__all__ = [
+    "GateOutOfOrder",
+    "GateResult",
+    "InstagramPublication",
+    "Reel",
+    "ReelGate",
+]
 
 
 def _position(step: str) -> int:
@@ -73,6 +79,10 @@ class Reel(Unit):
             ReelSpec.model_validate(self.spec)
         except PydanticValidationError as exc:
             raise ValidationError({"spec": str(exc)}) from None
+
+    @property
+    def has_route(self) -> bool:
+        return True
 
     @property
     def current_gate(self):
@@ -158,3 +168,14 @@ class ReelGate(RouteGate):
     @property
     def unit(self):
         return self.reel
+
+
+class InstagramPublication(PublicationBase):
+    """One posted instance of a reel on an Instagram account."""
+
+    reel = models.ForeignKey(
+        Reel, on_delete=models.CASCADE, related_name="publications"
+    )
+
+    class Meta:
+        ordering = ["-published_at", "-created_at"]

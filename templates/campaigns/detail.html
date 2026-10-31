@@ -32,15 +32,21 @@
                         <li class="flex flex-wrap items-center gap-3 px-4 py-3">
                             <c-badge variant="secondary">{{ row.channel|capfirst }}</c-badge>
                             <div class="min-w-0 flex-1">
-                                <a href="{{ row.url }}"
-                                   class="font-medium underline-offset-4 hover:underline">{{ piece.title }}</a>
+                                {% if row.url %}
+                                    <a href="{{ row.url }}"
+                                       class="font-medium underline-offset-4 hover:underline">{{ piece.title }}</a>
+                                {% else %}
+                                    <span class="font-medium">{{ piece.title }}</span>
+                                {% endif %}
                                 <p class="text-muted-foreground mt-0.5 text-sm">{{ piece.summary }}</p>
                             </div>
-                            <c-route-dots :unit="piece" />
-                            {% if piece.current_gate.result == "rejected" %}
-                                <c-badge variant="destructive">Sent back</c-badge>
+                            {% if piece.has_route %}
+                                <c-route-dots :unit="piece" />
+                                {% if piece.current_gate.result == "rejected" %}
+                                    <c-badge variant="destructive">Sent back</c-badge>
+                                {% endif %}
+                                <c-btn href="{{ row.url }}" variant="outline" size="sm">Open</c-btn>
                             {% endif %}
-                            <c-btn href="{{ row.url }}" variant="outline" size="sm">Open</c-btn>
                         </li>
                     {% endwith %}
                 {% endfor %}

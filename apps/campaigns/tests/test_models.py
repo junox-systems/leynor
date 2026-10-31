@@ -49,15 +49,30 @@ class CampaignTests(TestCase):
         assert units(self.campaign) == []
 
     def test_the_registry_finds_each_unit_with_its_url(self):
-        reel = Reel.start(campaign=self.campaign, title="Flying Eyes", slug="flying-eyes")
-        rows = units(self.campaign)
+        from apps.linkedin.models import Post
+        from apps.tiktok.models import TikTok
+        from apps.twitter.models import Tweet
 
-        assert [(row["channel"], row["unit"].pk) for row in rows] == [
-            ("reel", reel.pk)
-        ]
-        assert rows[0]["url"] == f"/reels/{reel.pk}/"
+        reel = Reel.start(campaign=self.campaign, title="Flying Eyes", slug="flying-eyes")
+        TikTok.objects.create(campaign=self.campaign, title="Cut", slug="cut")
+        Tweet.objects.create(campaign=self.campaign, title="Thread", slug="thread")
+        Post.objects.create(campaign=self.campaign, title="Essay", slug="essay")
+
+        rows = {row["channel"]: row for row in units(self.campaign)}
+        assert set(rows) == {"reel", "tiktok", "twitter", "linkedin"}
+        assert rows["reel"]["url"] == f"/reels/{reel.pk}/"
+        assert rows["tiktok"]["url"] == ""
+        assert rows["reel"]["unit"].has_route is True
+        assert rows["tiktok"]["unit"].has_route is False
+        assert rows["tiktok"]["unit"].summary() == "Draft"
 
     def test_the_registry_builds_the_channel_publisher(self):
         from apps.instagram.publisher import InstagramPublisher
 
         assert isinstance(publisher("reel"), InstagramPublisher)
+
+    def test_an_unbuilt_channel_refuses_to_publish(self):
+        from apps.campaigns.adapters import PublishUnavailable
+
+        with pytest.raises(PublishUnavailable):
+            publisher("tiktok").publish(None)

@@ -25,6 +25,8 @@ env = environ.Env(
     STORAGE_BACKEND=(str, ""),
     RESEND_API_KEY=(str, ""),
     SENTRY_DSN=(str, ""),
+    INSTAGRAM_ACCOUNT_ID=(str, ""),
+    INSTAGRAM_ACCESS_TOKEN=(str, ""),
 )
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -46,6 +48,9 @@ INSTALLED_APPS = [
     "apps.projects",
     "apps.campaigns",
     "apps.instagram",
+    "apps.tiktok",
+    "apps.twitter",
+    "apps.linkedin",
     "apps.runs",
     "apps.text",
     "apps.image",
@@ -169,6 +174,11 @@ DATABASES["default"]["CONN_MAX_AGE"] = 600
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 # For psycopg 3 connection recycling strategy (uncomment when needed):
 # DATABASES["default"]["CONN_MAX_AGE_STRATEGY"] = "max_lifetime"
+
+# Channel publishing. Empty means the publisher refuses instead of guessing.
+INSTAGRAM_ACCOUNT_ID = env("INSTAGRAM_ACCOUNT_ID")
+INSTAGRAM_ACCESS_TOKEN = env("INSTAGRAM_ACCESS_TOKEN")
+PUBLIC_MEDIA_BASE_URL = env("PUBLIC_MEDIA_BASE_URL", default="")
 
 # Authentication
 AUTH_USER_MODEL = "users.User"

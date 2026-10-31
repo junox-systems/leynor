@@ -41,6 +41,9 @@ apps/           # ALL backend code. Never at project root
   projects/     # Project: the workspace campaigns belong to
   campaigns/    # Campaign brief + Unit/RouteGate bases + unit registry + adapters
   instagram/    # Reel: Instagram's unit, its six-step route, its publisher
+  tiktok/       # TikTok unit, publisher stub (no client yet)
+  twitter/      # Tweet unit, publisher stub (no client yet)
+  linkedin/     # Post unit, publisher stub (no client yet)
   text/         # text engine: schema-free drafting (pydantic-ai)
   image/        # image engine: procedural + waveform visuals
   video/        # video engine: ReelSpec, compose, encode, audio
@@ -74,7 +77,7 @@ Four layers, one direction: **channel app → engine → store/core**.
 
 | Layer | Apps | Rule |
 |---|---|---|
-| Channel | `instagram` (later `tiktok`, `twitter`, `linkedin`) | owns its unit model, its route, its publisher |
+| Channel | `instagram`, `tiktok`, `twitter`, `linkedin` | owns its unit model, its route, its publisher; only `instagram` has a route and a UI |
 | Engine | `text`, `image`, `video` | knows no platform, takes plain data |
 | Store | `runs` | artifact bytes by key |
 | Container | `projects`, `campaigns` | hierarchy only, no channel imports |
@@ -85,6 +88,7 @@ Four layers, one direction: **channel app → engine → store/core**.
 - `Unit.organization` resolves through the campaign. RBAC reads that attribute (`rbac._organization_of`); without it every unit page is denied.
 - `text.services.draft(brief, instructions=...)` is schema-free. `image.services.generate(slug, scenes, store)` reads only labels. `video` accepts a `ReelSpec` and returns an mp4.
 - Engines never import a channel app or an ORM model. Channel apps never import each other. Campaigns never import a channel app.
+- Publishing settings: `INSTAGRAM_ACCOUNT_ID`, `INSTAGRAM_ACCESS_TOKEN`, `PUBLIC_MEDIA_BASE_URL`. Empty means `PublishUnavailable`, never a fake success.
 
 ### Models
 - All inherit `apps.core.models.BaseModel`: UUID v7 `id`, `created_at`, `updated_at`.

@@ -5,7 +5,7 @@ from pathlib import Path
 
 APPS = Path(__file__).resolve().parents[1] / "apps"
 
-CHANNELS = ("instagram",)
+CHANNELS = ("instagram", "tiktok", "twitter", "linkedin")
 ENGINES = ("text", "image", "video")
 CONTAINERS = ("projects", "campaigns")
 STORES = ("runs",)
@@ -16,6 +16,9 @@ ALLOWED = {
     "campaigns": {"projects"},
     # A channel may import the campaign layer and every engine.
     "instagram": {"campaigns", "projects", "text", "image", "video"},
+    "tiktok": {"campaigns"},
+    "twitter": {"campaigns"},
+    "linkedin": {"campaigns"},
     # Engines know no platform and no ORM model.
     "text": set(),
     "image": set(),

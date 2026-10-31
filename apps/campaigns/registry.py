@@ -10,12 +10,19 @@ from django.utils.module_loading import import_string
 
 UNITS = {
     "reel": "apps.instagram.models.Reel",
+    "tiktok": "apps.tiktok.models.TikTok",
+    "twitter": "apps.twitter.models.Tweet",
+    "linkedin": "apps.linkedin.models.Post",
 }
 
 PUBLISHERS = {
     "reel": "apps.instagram.publisher.InstagramPublisher",
+    "tiktok": "apps.tiktok.publisher.TikTokPublisher",
+    "twitter": "apps.twitter.publisher.TweetPublisher",
+    "linkedin": "apps.linkedin.publisher.LinkedInPublisher",
 }
 
+# Only channels with a page of their own. A unit without one is listed plain.
 UNIT_URLS = {
     "reel": "reel_detail",
 }
@@ -29,12 +36,13 @@ def units(campaign) -> list[dict]:
     """Every unit of one campaign, tagged with its channel and its own URL."""
     rows = []
     for channel, model in unit_models().items():
+        name = UNIT_URLS.get(channel)
         for unit in model.objects.filter(campaign=campaign):
             rows.append(
                 {
                     "channel": channel,
                     "unit": unit,
-                    "url": reverse(UNIT_URLS[channel], args=[unit.pk]),
+                    "url": reverse(name, args=[unit.pk]) if name else "",
                 }
             )
     return rows

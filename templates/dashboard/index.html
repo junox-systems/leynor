@@ -73,8 +73,12 @@
                                 {% for unit in row.units %}
                                     {% with piece=unit.unit %}
                                         <div class="flex items-center gap-2">
-                                            <a href="{{ unit.url }}" class="text-sm underline-offset-4 hover:underline">{{ piece.title }}</a>
-                                            <c-route-dots :unit="piece" />
+                                            {% if unit.url %}
+                                                <a href="{{ unit.url }}" class="text-sm underline-offset-4 hover:underline">{{ piece.title }}</a>
+                                            {% else %}
+                                                <span class="text-sm">{{ piece.title }}</span>
+                                            {% endif %}
+                                            {% if piece.has_route %}<c-route-dots :unit="piece" />{% endif %}
                                             <span class="text-muted-foreground text-xs">{{ piece.summary }}</span>
                                         </div>
                                     {% endwith %}

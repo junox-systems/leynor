@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from pydantic_ai import Agent
 
-from .graphs import DraftDeps
+from apps.text.graphs import DraftDeps
 
 DRAFTER = (
     "You are the drafting half of a content production pipeline. Write only the "

@@ -10,7 +10,7 @@ from typing import Protocol, runtime_checkable
 
 
 class PublishUnavailable(RuntimeError):
-    """This channel has no credentials or client wired yet."""
+    """This channel has no credentials, media URL, or client wired yet."""
 
 
 @runtime_checkable
@@ -28,3 +28,22 @@ class ChannelPublisher(Protocol):
     def refresh(self, unit) -> None:
         """Pull fresh metrics into the publication record."""
         ...
+
+
+class UnconfiguredPublisher:
+    """A channel with an interface but no API client yet.
+
+    Every method fails loudly or does nothing, so the registry can hand it out
+    without pretending a post happened.
+    """
+
+    channel = ""
+
+    def publish(self, unit) -> str:
+        raise PublishUnavailable(f"{self.channel or 'this channel'} has no client yet.")
+
+    def stats(self, unit) -> dict:
+        return {}
+
+    def refresh(self, unit) -> None:
+        return None
