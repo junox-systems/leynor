@@ -36,10 +36,16 @@ for _ in $(seq 60); do
 done
 [ "$(get /healthz/)" = 200 ] || fail "/healthz/ never returned 200"
 
-css=$(docker exec "$P-web" curl -sS -H "Host: localhost" http://127.0.0.1:8000/ | grep -o '/static/[^"]*\.css' | head -1)
-[ -n "$css" ] || fail "no stylesheet linked from /"
+# Private app: "/" only redirects to sign-in, so the stylesheet link lives on
+# that page. pipefail turns grep's no-match into a silent exit without `|| true`.
+code=$(get /)
+[ "$code" = 302 ] || fail "/ returned $code, expected the login redirect"
 
-for path in / /accounts/login/ /docs/openapi.json "$css"; do
+css=$(docker exec "$P-web" curl -sS -H "Host: localhost" http://127.0.0.1:8000/accounts/login/ \
+  | grep -o '/static/[^"]*\.css' | head -1 || true)
+[ -n "$css" ] || fail "no stylesheet linked from /accounts/login/"
+
+for path in /accounts/login/ /docs/openapi.json "$css"; do
   code=$(get "$path")
   echo "$code $path"
   [ "$code" = 200 ] || fail "$path returned $code"
