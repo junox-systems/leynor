@@ -10,84 +10,88 @@
 
     <section class="flex flex-wrap items-end justify-between gap-4">
         <div class="max-w-xl">
-            <h2 class="text-2xl font-semibold tracking-tight">Six gates, one reel</h2>
+            <h2 class="text-2xl font-semibold tracking-tight">One brief, every channel</h2>
             <p class="text-muted-foreground mt-1.5 text-sm text-pretty">
-                Spark, Hook, Board, Look, Voice, Print. Board and Print wait for a person;
-                the rest pass on evidence.
+                A campaign holds the brief. Each output unit walks its own route: the reel
+                waits on Board and Print, and passes the rest on evidence.
             </p>
         </div>
-        <c-btn href="{% url 'project_new' %}">Start a reel</c-btn>
+        <c-btn href="{% url 'project_new' %}">Start a project</c-btn>
     </section>
 
     {% if awaiting %}
         <section class="space-y-3" aria-labelledby="awaiting-title">
             <h3 id="awaiting-title" class="text-sm font-semibold">Waiting on you</h3>
             <ul class="divide-border divide-y rounded-lg border">
-                {% for project in awaiting %}
+                {% for row in awaiting %}
                     <li class="flex flex-wrap items-center gap-3 px-4 py-3">
                         <div class="min-w-0 flex-1">
-                            <a href="{% url 'project_detail' project.pk %}"
-                               class="font-medium underline-offset-4 hover:underline">{{ project.title }}</a>
-                            <p class="text-muted-foreground mt-0.5 text-sm">{{ project.summary }}</p>
+                            <a href="{{ row.url }}"
+                               class="font-medium underline-offset-4 hover:underline">{{ row.unit.title }}</a>
+                            <p class="text-muted-foreground mt-0.5 text-sm">{{ row.campaign.title }} · {{ row.unit.summary }}</p>
                         </div>
-                        {% if project.current_gate.result == "rejected" %}
+                        {% if row.unit.current_gate.result == "rejected" %}
                             <c-badge variant="destructive">Sent back</c-badge>
                         {% else %}
                             <c-badge variant="primary">Your call</c-badge>
                         {% endif %}
-                        <c-btn href="{% url 'project_detail' project.pk %}" variant="outline" size="sm">Review</c-btn>
+                        <c-btn href="{{ row.url }}" variant="outline" size="sm">Review</c-btn>
                     </li>
                 {% endfor %}
             </ul>
         </section>
     {% endif %}
 
-    <section class="space-y-3" aria-labelledby="reels-title">
+    <section class="space-y-3" aria-labelledby="campaigns-title">
         <div class="flex items-center justify-between gap-4">
-            <h3 id="reels-title" class="text-sm font-semibold">Recent reels</h3>
+            <h3 id="campaigns-title" class="text-sm font-semibold">Recent campaigns</h3>
             {% if total > 5 %}
                 <a href="{% url 'projects' %}" class="text-muted-foreground text-sm underline-offset-4 hover:underline">
-                    All {{ total }}
+                    All projects
                 </a>
             {% endif %}
         </div>
 
-        {% if projects %}
+        {% if rows %}
             <c-table>
                 <thead>
                     <tr>
-                        <th scope="col">Reel</th>
-                        <th scope="col" class="hidden sm:table-cell">Route</th>
-                        <th scope="col">Now</th>
+                        <th scope="col">Campaign</th>
+                        <th scope="col" class="hidden sm:table-cell">Outputs</th>
                         <th scope="col" class="text-end">Updated</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for project in projects %}
+                    {% for row in rows %}
                         <tr>
                             <td>
-                                <a href="{% url 'project_detail' project.pk %}"
-                                   class="font-medium underline-offset-4 hover:underline">{{ project.title }}</a>
-                                <div class="text-muted-foreground mt-0.5 font-mono text-xs">{{ project.slug }}</div>
+                                <a href="{% url 'campaign_detail' row.campaign.pk %}"
+                                   class="font-medium underline-offset-4 hover:underline">{{ row.campaign.title }}</a>
+                                <div class="text-muted-foreground mt-0.5 text-xs">{{ row.campaign.project.title }}</div>
                             </td>
-                            <td class="hidden sm:table-cell"><c-route-dots :project="project" /></td>
-                            <td>
-                                {% if project.complete %}
-                                    <c-badge variant="secondary">Complete</c-badge>
-                                {% else %}
-                                    <span class="text-sm">{{ project.summary }}</span>
-                                {% endif %}
+                            <td class="hidden sm:table-cell">
+                                {% for unit in row.units %}
+                                    {% with piece=unit.unit %}
+                                        <div class="flex items-center gap-2">
+                                            <a href="{{ unit.url }}" class="text-sm underline-offset-4 hover:underline">{{ piece.title }}</a>
+                                            <c-route-dots :unit="piece" />
+                                            <span class="text-muted-foreground text-xs">{{ piece.summary }}</span>
+                                        </div>
+                                    {% endwith %}
+                                {% empty %}
+                                    <span class="text-muted-foreground text-xs">No outputs yet</span>
+                                {% endfor %}
                             </td>
-                            <td class="text-muted-foreground text-end text-xs">{{ project.updated_at|date:"j M" }}</td>
+                            <td class="text-muted-foreground text-end text-xs">{{ row.campaign.updated_at|date:"j M" }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </c-table>
         {% else %}
-            <c-empty title="No reels yet"
-                     description="A reel starts with one idea sentence and ends with a printed 9:16. Create the first one and its six gates appear here.">
+            <c-empty title="No campaigns yet"
+                     description="A project holds the briefs; a campaign turns one brief into output units. Start a project, brief a campaign, then add its first reel.">
                 <c-slot name="icon"><c-icon.film /></c-slot>
-                <c-btn href="{% url 'project_new' %}">Start a reel</c-btn>
+                <c-btn href="{% url 'project_new' %}">Start a project</c-btn>
             </c-empty>
         {% endif %}
     </section>

@@ -17,7 +17,7 @@ def activity_payload(user, limit=10) -> dict:
     """Recent audited changes made by this user.
 
     Only models passed to `auditlog.register()` are recorded — today that is
-    User and the reels' Project/Gate rows, so older entries without an actor
+    User, Project, Campaign and Reel, so older entries without an actor
     (cascade edits) stay out of it.
     """
     # LogEntry.Meta.ordering is ["-timestamp"], so no explicit order_by needed.

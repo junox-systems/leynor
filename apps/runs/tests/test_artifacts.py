@@ -76,13 +76,16 @@ def test_tmpdir_is_removed_after_use(tmp_path):
     assert not written.exists()
 
 
-def test_artifact_key_is_scoped_to_org_project_run():
-    assert artifact_key("org", "proj", "run", "cues.json") == "org/proj/run/cues.json"
+def test_artifact_key_is_scoped_to_org_project_campaign_unit_run():
+    assert (
+        artifact_key("org", "proj", "camp", "reel", "run", "cues.json")
+        == "org/proj/camp/reel/run/cues.json"
+    )
 
 
 def test_artifact_key_rejects_unsafe_name():
     with pytest.raises(UnsafePath):
-        artifact_key("org", "proj", "run", "../../etc/passwd")
+        artifact_key("org", "proj", "camp", "reel", "run", "../../etc/passwd")
 
 
 def test_safe_key_keeps_relative_parts():

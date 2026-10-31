@@ -1,11 +1,11 @@
 {% extends "base_app.html" %}
 
 {% block title %}{{ project.title }} — {{ app_name }}{% endblock %}
-{% block page_title %}Reel{% endblock %}
+{% block page_title %}Project{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
-    <c-breadcrumb back="Reels" back_url="{% url 'projects' %}" current="{{ project.title }}" />
+    <c-breadcrumb back="Projects" back_url="{% url 'projects' %}" current="{{ project.title }}" />
 
     <header class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
@@ -13,100 +13,61 @@
             <div class="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                 <span class="font-mono text-xs">{{ project.slug }}</span>
                 <span aria-hidden="true">·</span>
-                <span>{{ project.target_seconds }} seconds</span>
-                <span aria-hidden="true">·</span>
                 <span>Started {{ project.created_at|date:"j M Y" }}</span>
             </div>
         </div>
-        {% if project.complete %}
-            <c-badge variant="primary">Complete</c-badge>
-        {% elif project.current_gate.result == "rejected" %}
-            <c-badge variant="destructive">Sent back</c-badge>
-        {% else %}
-            <c-badge variant="secondary">Step {{ project.current_gate.position|add:1 }} of 6</c-badge>
-        {% endif %}
+        <c-btn href="{% url 'campaign_new' project.pk %}">New campaign</c-btn>
     </header>
 
-    <div class="space-y-2">
-        <div class="flex items-center justify-between text-sm">
-            <span class="font-medium">{{ project.passed }} of 6 gates passed</span>
-            <span class="text-muted-foreground tabular-nums">{{ project.percent }}%</span>
-        </div>
-        <c-progress :percent="project.percent" />
-    </div>
-
-    <ol class="divide-border divide-y rounded-lg border">
-        {% for row in route %}
-            <li class="flex gap-4 px-4 py-4">
-                <span class="grid size-7 shrink-0 place-items-center rounded-full border font-mono text-xs tabular-nums
-                    {% if row.state == 'passed' %}border-primary bg-primary text-primary-foreground
-                    {% elif row.state == 'rejected' %}border-destructive text-destructive
-                    {% else %}text-muted-foreground{% endif %}">{{ row.spec.index }}</span>
-
-                <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <h3 class="text-sm font-medium">{{ row.name }}</h3>
-                        <c-badge :variant="row.variant">{{ row.label }}</c-badge>
-                        <span class="text-muted-foreground text-xs">{{ row.human|yesno:"A person decides,Evidence decides" }}</span>
-                    </div>
-
-                    <p class="text-muted-foreground mt-1 max-w-prose text-sm text-pretty">{{ row.spec.description }}</p>
-
-                    {% if row.gate.note %}
-                        <p class="bg-muted mt-2 rounded-md px-3 py-2 text-sm">{{ row.gate.note }}</p>
-                    {% endif %}
-
-                    {% if row.gate.decided_at %}
-                        <p class="text-muted-foreground mt-1.5 text-xs">
-                            {{ row.gate.decided_by.get_full_name|default:row.gate.decided_by.email|default:"Someone" }}
-                            · {{ row.gate.decided_at|timesince }} ago
-                        </p>
-                    {% endif %}
-
-                    {% if row.current %}
-                        {% if row.gate.result == "rejected" %}
-                            <form method="post" action="{% url 'gate_decide' project.pk row.gate.step %}" class="mt-3">
-                                {% csrf_token %}
-                                <c-btn type="submit" name="action" value="reopen" variant="outline" size="sm">Put back in play</c-btn>
-                            </form>
-                        {% else %}
-                            <form method="post" action="{% url 'gate_decide' project.pk row.gate.step %}"
-                                  class="mt-3 flex flex-wrap items-center gap-2">
-                                {% csrf_token %}
-                                <div class="field w-56">
-                                    <label class="sr-only" for="note-{{ row.gate.step }}">Note</label>
-                                    <input type="text" id="note-{{ row.gate.step }}" name="note" maxlength="200"
-                                           placeholder="{% if row.human %}What you saw{% else %}Evidence{% endif %}">
-                                </div>
-                                <c-btn type="submit" name="action" value="approve" size="sm">
-                                    {% if row.human %}Approve{% else %}Mark passed{% endif %}
-                                </c-btn>
-                                {% if row.human %}
-                                    <c-btn type="submit" name="action" value="reject" variant="outline" size="sm">Send back</c-btn>
-                                {% endif %}
-                            </form>
-                        {% endif %}
-                    {% endif %}
-                </div>
-            </li>
-        {% endfor %}
-    </ol>
+    <section class="space-y-3" aria-labelledby="campaigns-title">
+        <h3 id="campaigns-title" class="text-sm font-semibold">Campaigns</h3>
+        {% if campaigns %}
+            <c-table>
+                <thead>
+                    <tr>
+                        <th scope="col">Campaign</th>
+                        <th scope="col" class="hidden sm:table-cell">Goal</th>
+                        <th scope="col" class="text-end">Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for campaign in campaigns %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'campaign_detail' campaign.pk %}"
+                                   class="font-medium underline-offset-4 hover:underline">{{ campaign.title }}</a>
+                                <div class="text-muted-foreground mt-0.5 font-mono text-xs">{{ campaign.slug }}</div>
+                            </td>
+                            <td class="hidden sm:table-cell">{{ campaign.get_goal_display }}</td>
+                            <td class="text-muted-foreground text-end text-xs">{{ campaign.updated_at|date:"j M Y" }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </c-table>
+        {% else %}
+            <c-empty title="No campaigns yet"
+                     description="A campaign is one brief. Give it a title and a primary goal, then add the output units that carry it.">
+                <c-slot name="icon"><c-icon.film /></c-slot>
+                <c-btn href="{% url 'campaign_new' project.pk %}">New campaign</c-btn>
+            </c-empty>
+        {% endif %}
+    </section>
 
     <section class="flex flex-wrap items-start justify-between gap-4 border-t pt-6">
         <div>
-            <h3 class="text-sm font-semibold">Delete this reel</h3>
-            <p class="text-muted-foreground mt-1 text-sm">The six gate decisions go with it. This cannot be undone.</p>
+            <h3 class="text-sm font-semibold">Delete this project</h3>
+            <p class="text-muted-foreground mt-1 text-sm">Its campaigns, reels and gate decisions go with it. This cannot be undone.</p>
         </div>
         <c-btn type="button" variant="destructive" size="sm"
-               onclick="document.getElementById('delete-reel').showModal()">Delete reel</c-btn>
+               onclick="document.getElementById('delete-project').showModal()">Delete project</c-btn>
     </section>
 
-    <c-dialog id="delete-reel" title="Delete {{ project.title }}?"
-              description="Six gate decisions and every artifact reference go with it.">
+    <c-dialog id="delete-project" title="Delete {{ project.title }}?"
+              description="Every campaign, output unit and gate decision under it goes with the project.">
         <c-slot name="actions">
             <c-btn type="button" variant="outline" onclick="this.closest('dialog').close()">Cancel</c-btn>
             <c-form action="{% url 'project_delete' project.pk %}" class="contents">
-                <c-btn type="submit" variant="destructive">Delete reel</c-btn>
+                <c-btn type="submit" variant="destructive">Delete project</c-btn>
             </c-form>
         </c-slot>
     </c-dialog>

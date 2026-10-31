@@ -1,11 +1,11 @@
-"""The one form that starts a reel."""
+"""The one form that starts a project."""
 
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.text import slugify
 
 from apps.projects.models import Project
-from apps.projects.spec import SLUG
+from apps.projects.specs import SLUG
 
 
 class ProjectForm(forms.ModelForm):
@@ -17,8 +17,7 @@ class ProjectForm(forms.ModelForm):
 
     class Meta:
         model = Project
-        fields = ["title", "slug", "target_seconds"]
-        help_texts = {"target_seconds": "Between 60 and 120 seconds."}
+        fields = ["title", "slug"]
         widgets = {"title": forms.TextInput(attrs={"autofocus": True})}
 
     def __init__(self, *args, organization, **kwargs):
@@ -31,25 +30,14 @@ class ProjectForm(forms.ModelForm):
         )
         if not slug:
             raise ValidationError(
-                "Give the reel a slug, or a title a slug can come from."
+                "Give the project a slug, or a title a slug can come from."
             )
         if not SLUG.match(slug):
             raise ValidationError(
                 "Use 2 to 64 lowercase letters, digits or dashes, starting with a letter or digit."
             )
-        if (
-            self.organization is not None
-            and Project.objects.filter(
-                organization=self.organization, slug=slug
-            ).exists()
-        ):
+        if Project.objects.filter(organization=self.organization, slug=slug).exists():
             raise ValidationError(
-                "Another reel in this organization already uses that slug."
+                "Another project in this organization already uses that slug."
             )
         return slug
-
-    def clean_target_seconds(self):
-        seconds = self.cleaned_data["target_seconds"]
-        if not 60 <= seconds <= 120:
-            raise ValidationError("A reel runs 60 to 120 seconds.")
-        return seconds

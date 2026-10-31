@@ -44,7 +44,7 @@ def _groups(is_staff):
             "label": "Application",
             "items": [
                 _item("Dashboard", "dashboard", "dashboard"),
-                _item("Reels", "projects", "film"),
+                _item("Projects", "projects", "film"),
             ],
         },
         {"label": "Account", "items": account},

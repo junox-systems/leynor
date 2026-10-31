@@ -93,7 +93,7 @@ class PersonalOrganizationTests(TestCase):
         self.client.force_login(make_user("sam"))
         page = self.client.get(reverse("dashboard"))
         self.assertIsNone(current_session(page.wsgi_request))
-        self.assertContains(page, "No reels yet")
+        self.assertContains(page, "No campaigns yet")
 
 
 class OrgSwitchTests(OrgTestCase):

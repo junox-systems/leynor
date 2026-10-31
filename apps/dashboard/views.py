@@ -1,30 +1,42 @@
-# apps/dashboard/views.py
-
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 from django.views.generic import TemplateView
 
+from apps.campaigns.models import Campaign
 from apps.orgs.rbac import current_session
 
 from .panels import activity_payload
 
+RECENT = 5
+
 
 class DashboardView(LoginRequiredMixin, TemplateView):
-    """Today: what waits on a person, and the reels moving down the route."""
+    """Today: the campaigns in play, and what waits on a person."""
 
     template_name = "dashboard/index.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         session = current_session(self.request)
-        projects = (
-            list(session.organization.projects.prefetch_related("gates"))
-            if session
-            else []
+        if session is None:
+            context.update(rows=[], awaiting=[], total=0)
+            return context
+
+        campaigns = list(
+            Campaign.objects.filter(
+                project__organization=session.organization
+            ).select_related("project")
         )
-        context["awaiting"] = [project for project in projects if project.needs_person]
-        context["projects"] = projects[:5]
-        context["total"] = len(projects)
+        rows = [
+            {"campaign": campaign, "units": campaign.units()} for campaign in campaigns
+        ]
+        awaiting = [
+            {"campaign": row["campaign"], "unit": unit["unit"], "url": unit["url"]}
+            for row in rows
+            for unit in row["units"]
+            if getattr(unit["unit"], "needs_person", False)
+        ]
+        context.update(rows=rows[:RECENT], awaiting=awaiting, total=len(campaigns))
         return context
 
 

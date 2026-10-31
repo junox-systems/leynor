@@ -33,11 +33,23 @@ def safe_key(key: str) -> PurePosixPath:
 
 
 def artifact_key(
-    organization_id: object, project_id: object, run_id: object, name: str
+    organization_id: object,
+    project_id: object,
+    campaign_id: object,
+    unit_id: object,
+    run_id: object,
+    name: str,
 ) -> str:
-    """One artifact inside one run, scoped by org and project."""
+    """One artifact inside one run, scoped by org, project, campaign and unit."""
     return "/".join(
-        [str(organization_id), str(project_id), str(run_id), str(safe_key(name))]
+        [
+            str(organization_id),
+            str(project_id),
+            str(campaign_id),
+            str(unit_id),
+            str(run_id),
+            str(safe_key(name)),
+        ]
     )
 
 

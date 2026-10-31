@@ -1,18 +1,26 @@
-"""App import graph: one direction, no cycles, no dead engine package."""
+"""App import graph: channel to engine to store, never backwards."""
 
 import ast
 from pathlib import Path
 
 APPS = Path(__file__).resolve().parents[1] / "apps"
-CONTEXTS = ("projects", "runs", "creative", "voices", "renders")
+
+CHANNELS = ("instagram",)
+ENGINES = ("text", "image", "video")
+CONTAINERS = ("projects", "campaigns")
+STORES = ("runs",)
+CONTEXTS = CONTAINERS + CHANNELS + ENGINES + STORES
 
 ALLOWED = {
-    # shared kernel: spec, steps, gates
     "projects": set(),
-    "creative": {"projects"},
-    "voices": {"projects"},
-    "renders": {"projects", "voices"},
-    "runs": {"projects", "creative", "voices", "renders"},
+    "campaigns": {"projects"},
+    # A channel may import the campaign layer and every engine.
+    "instagram": {"campaigns", "projects", "text", "image", "video"},
+    # Engines know no platform and no ORM model.
+    "text": set(),
+    "image": set(),
+    "video": set(),
+    "runs": set(),
 }
 
 
@@ -55,17 +63,33 @@ def test_context_imports_follow_the_declared_direction():
     assert violations == [], "\n".join(violations)
 
 
-def test_no_app_imports_the_old_engine_package():
-    offenders = [
+def test_no_channel_imports_another_channel():
+    violations = []
+    for channel in CHANNELS:
+        for path in python_files(channel):
+            for imported in imported_apps(path):
+                if imported in CHANNELS and imported != channel:
+                    violations.append(f"{path} imports apps.{imported}")
+    assert violations == [], "\n".join(violations)
+
+
+def test_engines_import_no_orm_models():
+    violations = []
+    for engine in ENGINES:
+        for path in python_files(engine):
+            tree = ast.parse(path.read_text())
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom) and node.module:
+                    if node.module.endswith(".models"):
+                        violations.append(f"{path} imports {node.module}")
+    assert violations == [], "\n".join(violations)
+
+
+def test_campaigns_import_no_channel_package():
+    violations = [
         str(path)
-        for context in CONTEXTS
-        for path in python_files(context)
-        if "reel_playbook" in path.read_text()
+        for path in python_files("campaigns")
+        for imported in imported_apps(path)
+        if imported in CHANNELS
     ]
-    assert offenders == []
-
-
-def test_renders_never_imports_voices_models():
-    for path in python_files("renders"):
-        text = path.read_text()
-        assert "apps.voices.models" not in text, path
+    assert violations == [], "\n".join(violations)

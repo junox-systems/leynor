@@ -1,0 +1,19 @@
+{% extends "base_app.html" %}
+
+{% block title %}New campaign — {{ app_name }}{% endblock %}
+{% block page_title %}New campaign{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-xl space-y-6">
+    <c-breadcrumb back="{{ project.title }}" back_url="{% url 'project_detail' project.pk %}" current="New campaign" />
+
+    <c-card title="Brief a campaign"
+            description="The brief is what every output unit answers: the title, the primary goal, and who it is for."
+            lead>
+        <c-form>
+            <c-fields :form="form" />
+            <c-btn type="submit">Create</c-btn>
+        </c-form>
+    </c-card>
+</div>
+{% endblock %}

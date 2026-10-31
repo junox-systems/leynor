@@ -1,0 +1,57 @@
+{% extends "base_app.html" %}
+
+{% block title %}{{ campaign.title }} — {{ app_name }}{% endblock %}
+{% block page_title %}Campaign{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <c-breadcrumb back="{{ campaign.project.title }}" back_url="{% url 'project_detail' campaign.project.pk %}" current="{{ campaign.title }}" />
+
+    <header class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0">
+            <h2 class="text-2xl font-semibold tracking-tight text-balance">{{ campaign.title }}</h2>
+            <div class="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <span class="font-mono text-xs">{{ campaign.slug }}</span>
+                <span aria-hidden="true">·</span>
+                <span>Goal: {{ campaign.get_goal_display }}</span>
+                {% if campaign.audience %}
+                    <span aria-hidden="true">·</span>
+                    <span>For {{ campaign.audience }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <c-btn href="{% url 'reel_new' campaign.pk %}">Add a reel</c-btn>
+    </header>
+
+    <section class="space-y-3" aria-labelledby="outputs-title">
+        <h3 id="outputs-title" class="text-sm font-semibold">Outputs</h3>
+        {% if units %}
+            <ul class="divide-border divide-y rounded-lg border">
+                {% for row in units %}
+                    {% with piece=row.unit %}
+                        <li class="flex flex-wrap items-center gap-3 px-4 py-3">
+                            <c-badge variant="secondary">{{ row.channel|capfirst }}</c-badge>
+                            <div class="min-w-0 flex-1">
+                                <a href="{{ row.url }}"
+                                   class="font-medium underline-offset-4 hover:underline">{{ piece.title }}</a>
+                                <p class="text-muted-foreground mt-0.5 text-sm">{{ piece.summary }}</p>
+                            </div>
+                            <c-route-dots :unit="piece" />
+                            {% if piece.current_gate.result == "rejected" %}
+                                <c-badge variant="destructive">Sent back</c-badge>
+                            {% endif %}
+                            <c-btn href="{{ row.url }}" variant="outline" size="sm">Open</c-btn>
+                        </li>
+                    {% endwith %}
+                {% endfor %}
+            </ul>
+        {% else %}
+            <c-empty title="No outputs yet"
+                     description="A reel turns this brief into a 9:16 video: Spark, Hook, Board, Look, Voice, Print.">
+                <c-slot name="icon"><c-icon.film /></c-slot>
+                <c-btn href="{% url 'reel_new' campaign.pk %}">Add a reel</c-btn>
+            </c-empty>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

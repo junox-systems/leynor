@@ -38,11 +38,13 @@ apps/           # ALL backend code. Never at project root
   pages/        # static/marketing pages
   dashboard/    # /dashboard/ + /dashboard/activity/ — overview, activity payload
   orgs/         # orgs, memberships, RBAC roles (rbac.py), email invitations
-  projects/     # Project + Gate: the six-step route, its states and decisions
-  runs/         # artifact store + step→runner registry (no models yet)
-  creative/     # drafting agents (pydantic-ai) + validators
-  voices/       # TTS, ASR alignment, mix
-  renders/      # look, compose, print, HyperFrames
+  projects/     # Project: the workspace campaigns belong to
+  campaigns/    # Campaign brief + Unit/RouteGate bases + unit registry + adapters
+  instagram/    # Reel: Instagram's unit, its six-step route, its publisher
+  text/         # text engine: schema-free drafting (pydantic-ai)
+  image/        # image engine: procedural + waveform visuals
+  video/        # video engine: ReelSpec, compose, encode, audio
+  runs/         # artifact store
 config/
   settings/     # base / dev / production / test
   asgi.py       # ASGI + OTEL init
@@ -66,6 +68,23 @@ dev/            # Docker dev env (Dockerfile, compose, supervisord)
 ### Apps
 - Each app: `__init__.py`, `apps.py`, `models.py`, `admin.py`, `views.py`, `tests/`.
 - `core` = only truly universal code. Domain grows → own app.
+
+### Engines and channels
+Four layers, one direction: **channel app → engine → store/core**.
+
+| Layer | Apps | Rule |
+|---|---|---|
+| Channel | `instagram` (later `tiktok`, `twitter`, `linkedin`) | owns its unit model, its route, its publisher |
+| Engine | `text`, `image`, `video` | knows no platform, takes plain data |
+| Store | `runs` | artifact bytes by key |
+| Container | `projects`, `campaigns` | hierarchy only, no channel imports |
+
+- Hierarchy: `Organization → Project → Campaign → channel unit`. A Reel is Instagram's unit; later channels add sibling units under the same campaign.
+- `campaigns.registry` (`UNITS`, `PUBLISHERS`, `UNIT_URLS`) is how campaigns and the dashboard find units. A new channel = one app + one dict entry, no edits elsewhere.
+- `campaigns.models.Unit` and `campaigns.routes.RouteGate` are abstract bases. Each channel subclasses them with its own unit FK, step choices and unique constraint.
+- `Unit.organization` resolves through the campaign. RBAC reads that attribute (`rbac._organization_of`); without it every unit page is denied.
+- `text.services.draft(brief, instructions=...)` is schema-free. `image.services.generate(slug, scenes, store)` reads only labels. `video` accepts a `ReelSpec` and returns an mp4.
+- Engines never import a channel app or an ORM model. Channel apps never import each other. Campaigns never import a channel app.
 
 ### Models
 - All inherit `apps.core.models.BaseModel`: UUID v7 `id`, `created_at`, `updated_at`.
