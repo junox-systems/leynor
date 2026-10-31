@@ -12,7 +12,7 @@ BUILT_CSS = sorted(glob.glob(f"{FRONTEND}/dist/assets/main-*.css"))
 
 # Tailwind classes used only inside .svelte files. They vanish from the build
 # when the ".svelte" line leaves @source in frontend/src/css/styles.css.
-SVELTE_ONLY = ("lg\\:grid-cols-2", "divide-border")
+SVELTE_ONLY = ("active\\:text-destructive", "hover\\:text-destructive")
 
 
 class FrontendContractTests(SimpleTestCase):
