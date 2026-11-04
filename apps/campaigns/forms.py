@@ -2,7 +2,6 @@
 
 from django import forms
 
-from apps.brands.models import Audience
 from apps.campaigns.models import Campaign
 
 
@@ -16,9 +15,9 @@ class CampaignForm(forms.ModelForm):
         self.project = project
         super().__init__(*args, **kwargs)
         brand = project.brand
-        self.fields["audience"].queryset = (
-            brand.audiences.all() if brand else Audience.objects.none()
-        )
+        field = self.fields["audience"]
+        # Read through the relation: campaigns may not import the brands app.
+        field.queryset = brand.audiences.all() if brand else field.queryset.none()
         self.fields["audience"].empty_label = (
             "The brand's primary audience"
             if brand and brand.primary_audience

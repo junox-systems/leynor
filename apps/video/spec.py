@@ -47,8 +47,8 @@ class ReelSpec(BaseModel):
     @field_validator("target_seconds")
     @classmethod
     def duration_window(cls, value: int) -> int:
-        if not 60 <= value <= 120:
-            raise ValueError("target_seconds must be 60-120")
+        if not 60 <= value <= 180:
+            raise ValueError("target_seconds must be 60-180")
         return value
 
     @field_validator("scenes")

@@ -7,12 +7,12 @@
 <div class="w-full max-w-xl space-y-6">
     <c-breadcrumb back="{{ campaign.title }}" back_url="{% url 'campaign_detail' campaign.pk %}" current="New reel" />
 
-    <c-card title="Start a reel"
-            description="The title and the seconds are the only decisions here. Every reel opens with all six gates waiting; you pass each one in turn."
+    <c-card title="Create a reel"
+            description="The prompt is what this piece must say. Every reel opens with all six gates waiting; you pass each one in turn."
             lead>
         <c-form>
             <c-fields :form="form" />
-            <c-btn type="submit">Start</c-btn>
+            <c-btn type="submit">Create</c-btn>
         </c-form>
     </c-card>
 </div>

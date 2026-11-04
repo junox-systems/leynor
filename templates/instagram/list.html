@@ -29,7 +29,7 @@
                         <td>
                             <a href="{% url 'reel_detail' reel.pk %}"
                                class="font-medium underline-offset-4 hover:underline">{{ reel.title }}</a>
-                            <div class="text-muted-foreground mt-0.5 font-mono text-xs">{{ reel.slug }}</div>
+                            <div class="text-muted-foreground mt-0.5 text-xs">{{ reel.target_seconds }}s</div>
                         </td>
                         <td class="hidden sm:table-cell">
                             <a href="{% url 'campaign_detail' reel.campaign.pk %}"
