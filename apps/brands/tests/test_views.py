@@ -2,7 +2,7 @@ from django.contrib.messages import get_messages
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.brands.models import Brand
+from apps.brands.models import Audience, Brand
 from apps.orgs.models import OWNER, Membership, Organization, Role
 from apps.users.models import User
 
@@ -78,7 +78,6 @@ class CreateTests(BrandViewTestCase):
                 "website": "https://second.example",
                 "description": "Another client.",
                 "industry": "Retail",
-                "audience": "Shoppers",
                 "tone": "Plain",
             },
         )
@@ -97,10 +96,70 @@ class CreateTests(BrandViewTestCase):
                 "website": "",
                 "description": "",
                 "industry": "",
-                "audience": "",
                 "tone": "",
             },
         )
         assert response.status_code == 200
         assert Brand.objects.filter(name="Flying Eyes").count() == 1
         assert "already has a brand by that name" in response.content.decode()
+
+
+class DetailTests(BrandViewTestCase):
+    def test_the_detail_page_is_scoped_to_the_organization(self):
+        outsider = make_user("otto")
+        other = make_org(outsider, name="Other")
+        theirs = Brand.objects.create(organization=other, name="Theirs")
+
+        response = self.client.get(reverse("brand_detail", args=[theirs.pk]))
+        assert response.status_code == 404
+
+    def test_the_detail_page_lists_the_audiences(self):
+        Audience.objects.create(
+            brand=self.brand,
+            name="Listeners who read credits",
+            description="They play records front to back.",
+            wants="A statement they can repeat.",
+            barrier="Debuts are cut short.",
+            primary=True,
+        )
+        body = self.client.get(reverse("brand_detail", args=[self.brand.pk])).content.decode()
+        assert "Listeners who read credits" in body
+        assert "They play records front to back." in body
+        assert "Held back by Debuts are cut short." in body
+        assert "Primary" in body
+
+    def test_an_audience_is_added_from_the_brand_page(self):
+        response = self.client.post(
+            reverse("brand_detail", args=[self.brand.pk]),
+            {
+                "name": "Shoppers",
+                "description": "They buy on price and read reviews.",
+                "wants": "A reason to switch.",
+                "barrier": "The last one disappointed them.",
+                "primary": "on",
+            },
+        )
+        audience = Audience.objects.get(brand=self.brand, name="Shoppers")
+        assert response.status_code == 302
+        assert response["Location"] == reverse("brand_detail", args=[self.brand.pk])
+        assert audience.primary
+        assert messages_of(response) == ["Shoppers added to Flying Eyes."]
+
+    def test_a_second_primary_audience_is_a_form_error(self):
+        Audience.objects.create(brand=self.brand, name="Regulars", primary=True)
+        response = self.client.post(
+            reverse("brand_detail", args=[self.brand.pk]),
+            {"name": "Tourists", "description": "", "wants": "", "barrier": "", "primary": "on"},
+        )
+        assert response.status_code == 200
+        assert "already has a primary audience" in response.content.decode()
+        assert not Audience.objects.filter(name="Tourists").exists()
+
+    def test_a_duplicate_audience_name_is_a_form_error(self):
+        Audience.objects.create(brand=self.brand, name="Regulars")
+        response = self.client.post(
+            reverse("brand_detail", args=[self.brand.pk]),
+            {"name": "Regulars", "description": "", "wants": "", "barrier": ""},
+        )
+        assert response.status_code == 200
+        assert "already has an audience by that name" in response.content.decode()
