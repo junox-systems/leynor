@@ -20,8 +20,8 @@ class ProjectTests(TestCase):
         )
         self.org = make_org(self.user)
 
-    def test_start_creates_an_active_workspace_in_the_organization(self):
-        project = Project.start(organization=self.org, title="Works")
+    def test_create_makes_an_active_workspace_in_the_organization(self):
+        project = Project.create(organization=self.org, title="Works")
         assert project.organization == self.org
         assert project.status == Project.Status.ACTIVE
         assert project.archived is False
@@ -29,9 +29,9 @@ class ProjectTests(TestCase):
         assert project.description == ""
         assert project.campaigns.count() == 0
 
-    def test_start_takes_an_optional_brand_and_a_description(self):
+    def test_create_takes_an_optional_brand_and_a_description(self):
         brand = Brand.objects.create(organization=self.org, name="Flying Eyes")
-        project = Project.start(
+        project = Project.create(
             organization=self.org,
             title="Works",
             brand=brand,
@@ -42,12 +42,12 @@ class ProjectTests(TestCase):
         assert list(brand.projects.all()) == [project]
 
     def test_two_projects_may_share_a_title(self):
-        Project.start(organization=self.org, title="Works")
-        second = Project.start(organization=self.org, title="Works")
+        Project.create(organization=self.org, title="Works")
+        second = Project.create(organization=self.org, title="Works")
         assert second.pk
 
     def test_archived_projects_stay_readable(self):
-        project = Project.start(organization=self.org, title="Old work")
+        project = Project.create(organization=self.org, title="Old work")
         project.status = Project.Status.ARCHIVED
         project.save()
         assert project.archived is True

@@ -40,7 +40,7 @@ class CampaignViewTestCase(TestCase):
             description="They play records front to back.",
             primary=True,
         )
-        self.project = Project.start(
+        self.project = Project.create(
             organization=self.org, title="Works", brand=self.brand
         )
         self.campaign = Campaign.objects.create(
@@ -61,7 +61,7 @@ class AccessTests(CampaignViewTestCase):
     def test_another_organizations_campaign_is_a_404(self):
         outsider = make_user("otto")
         other = make_org(outsider, name="Other")
-        their_project = Project.start(organization=other, title="Theirs")
+        their_project = Project.create(organization=other, title="Theirs")
         theirs = Campaign.objects.create(project=their_project, title="Theirs")
         self.client.force_login(outsider)
 
@@ -109,7 +109,7 @@ class CreateTests(CampaignViewTestCase):
         assert "Select a valid choice" in response.content.decode()
 
     def test_a_campaign_without_a_brand_offers_no_audience(self):
-        bare = Project.start(organization=self.org, title="Bare")
+        bare = Project.create(organization=self.org, title="Bare")
         response = self.client.get(reverse("campaign_new", args=[bare.pk]))
         assert response.status_code == 200
         assert "Set a brand on this project" in response.content.decode()
@@ -125,7 +125,7 @@ class CreateTests(CampaignViewTestCase):
 
 class DetailTests(CampaignViewTestCase):
     def test_the_brief_lists_its_output_units(self):
-        Reel.start(campaign=self.campaign, title="Flying Eyes", slug="flying-eyes")
+        Reel.create(campaign=self.campaign, title="Flying Eyes", slug="flying-eyes")
         body = self.client.get(self.detail).content.decode()
         assert "Launch" in body
         assert "Flying Eyes" in body
@@ -139,7 +139,7 @@ class DetailTests(CampaignViewTestCase):
 
 class ListTests(CampaignViewTestCase):
     def test_the_list_shows_campaigns_with_their_project(self):
-        other = Project.start(organization=self.org, title="Second")
+        other = Project.create(organization=self.org, title="Second")
         Campaign.objects.create(project=other, title="Second brief")
 
         body = self.client.get(reverse("campaigns")).content.decode()

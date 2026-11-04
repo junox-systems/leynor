@@ -20,7 +20,7 @@ def make_org(user, name="Acme"):
 
 
 def make_campaign(org, title="Launch"):
-    project = Project.start(organization=org, title=f"Works {title}")
+    project = Project.create(organization=org, title=f"Works {title}")
     return Campaign.objects.create(project=project, title=title)
 
 
@@ -31,11 +31,11 @@ class RouteTests(TestCase):
         )
         self.org = make_org(self.user)
         self.campaign = make_campaign(self.org)
-        self.reel = Reel.start(
+        self.reel = Reel.create(
             campaign=self.campaign, title="Flying Eyes", slug="flying-eyes"
         )
 
-    def test_start_creates_one_gate_per_step_in_route_order(self):
+    def test_create_makes_one_gate_per_step_in_route_order(self):
         gates = list(self.reel.gates.all())
         assert [gate.step for gate in gates] == [step.value for step in Step]
         assert [gate.position for gate in gates] == list(range(6))
@@ -90,11 +90,11 @@ class RouteTests(TestCase):
 
     def test_slugs_are_unique_per_campaign(self):
         with pytest.raises(IntegrityError):
-            Reel.start(campaign=self.campaign, title="Other", slug="flying-eyes")
+            Reel.create(campaign=self.campaign, title="Other", slug="flying-eyes")
 
     def test_the_same_slug_is_free_in_another_campaign(self):
         other = make_campaign(self.org, title="Second")
-        reel = Reel.start(campaign=other, title="Flying Eyes", slug="flying-eyes")
+        reel = Reel.create(campaign=other, title="Flying Eyes", slug="flying-eyes")
         assert reel.gates.count() == 6
 
     def test_tenancy_resolves_through_the_campaign(self):

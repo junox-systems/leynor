@@ -9,7 +9,7 @@
         <p class="text-muted-foreground text-sm">
             A project holds campaigns; a campaign holds the brief and its output units.
         </p>
-        <c-btn href="{% url 'project_new' %}">Start a project</c-btn>
+        <c-btn href="{% url 'project_new' %}">New project</c-btn>
     </div>
 
     {% if projects %}
@@ -45,7 +45,7 @@
         <c-empty title="No projects yet"
                  description="A project is the workspace the campaigns belong to. Create one, brief a campaign, then add its output units.">
             <c-slot name="icon"><c-icon.film /></c-slot>
-            <c-btn href="{% url 'project_new' %}">Start a project</c-btn>
+            <c-btn href="{% url 'project_new' %}">New project</c-btn>
         </c-empty>
     {% endif %}
 </div>

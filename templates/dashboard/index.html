@@ -16,7 +16,7 @@
                 that answer it. Only the reel gates its work: Spark, Hook, Board, Look, Voice, Print.
             </p>
         </div>
-        <c-btn href="{% url 'project_new' %}">Start a project</c-btn>
+        <c-btn href="{% url 'project_new' %}">New project</c-btn>
     </section>
 
     {% if awaiting %}
@@ -112,7 +112,7 @@
             <c-empty title="No projects yet"
                      description="A project is the workspace. Brief a campaign inside it, then add the channel units that carry the brief. The reel walks six gates.">
                 <c-slot name="icon"><c-icon.folder /></c-slot>
-                <c-btn href="{% url 'project_new' %}">Start a project</c-btn>
+                <c-btn href="{% url 'project_new' %}">New project</c-btn>
             </c-empty>
         {% endif %}
     </section>

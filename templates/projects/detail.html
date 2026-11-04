@@ -12,7 +12,7 @@
             <h2 class="text-2xl font-semibold tracking-tight text-balance">{{ project.title }}</h2>
             <div class="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                 {% if project.brand %}<a href="{% url 'brand_detail' project.brand.pk %}" class="underline-offset-4 hover:underline">{{ project.brand.name }}</a>{% endif %}
-                <span>Started {{ project.created_at|date:"j M Y" }}</span>
+                <span>Created {{ project.created_at|date:"j M Y" }}</span>
                 {% if project.archived %}
                     <c-badge variant="secondary">Archived</c-badge>
                 {% endif %}

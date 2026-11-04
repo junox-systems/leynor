@@ -75,7 +75,7 @@ class Reel(Unit):
         ]
 
     @classmethod
-    def start(cls, *, campaign, title, prompt="", goal="", target_seconds=60, slug=None):
+    def create(cls, *, campaign, title, prompt="", goal="", target_seconds=60, slug=None):
         """Create the reel and its six pending gates in one transaction."""
         with transaction.atomic():
             reel = cls.objects.create(

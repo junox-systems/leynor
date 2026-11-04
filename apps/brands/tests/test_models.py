@@ -52,8 +52,8 @@ class BrandTests(TestCase):
 
     def test_several_projects_can_answer_one_brand(self):
         brand = Brand.objects.create(organization=self.org, name="Flying Eyes")
-        first = Project.start(organization=self.org, title="Debut", brand=brand)
-        second = Project.start(organization=self.org, title="Tour", brand=brand)
+        first = Project.create(organization=self.org, title="Debut", brand=brand)
+        second = Project.create(organization=self.org, title="Tour", brand=brand)
         assert set(brand.projects.all()) == {first, second}
 
 

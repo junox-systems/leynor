@@ -26,7 +26,7 @@ def make_org(user, name="Acme"):
 
 
 def make_campaign(org, title="Launch"):
-    project = Project.start(organization=org, title=f"Works {title}")
+    project = Project.create(organization=org, title=f"Works {title}")
     return Campaign.objects.create(project=project, title=title)
 
 
@@ -39,7 +39,7 @@ class ReelViewTestCase(TestCase):
         self.user = make_user("alice")
         self.org = make_org(self.user)
         self.campaign = make_campaign(self.org)
-        self.reel = Reel.start(
+        self.reel = Reel.create(
             campaign=self.campaign, title="Flying Eyes", slug="flying-eyes"
         )
         self.client.force_login(self.user)
@@ -60,7 +60,7 @@ class AccessTests(ReelViewTestCase):
         outsider = make_user("otto")
         other = make_org(outsider, name="Other")
         theirs_campaign = make_campaign(other, title="Theirs")
-        theirs = Reel.start(campaign=theirs_campaign, title="Theirs", slug="theirs")
+        theirs = Reel.create(campaign=theirs_campaign, title="Theirs", slug="theirs")
         self.client.force_login(outsider)
 
         assert (
@@ -206,7 +206,7 @@ class ListTests(ReelViewTestCase):
         outsider = make_user("otto")
         other = make_org(outsider, name="Other")
         theirs_campaign = make_campaign(other, title="Theirs")
-        Reel.start(campaign=theirs_campaign, title="Theirs", slug="theirs")
+        Reel.create(campaign=theirs_campaign, title="Theirs", slug="theirs")
         self.client.force_login(outsider)
 
         body = self.client.get(reverse("reels")).content.decode()

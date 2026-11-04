@@ -45,7 +45,7 @@ def project_new(request):
         return redirect("orgs")
     form = ProjectForm(request.POST or None, organization=org)
     if request.method == "POST" and form.is_valid():
-        project = Project.start(organization=org, **form.cleaned_data)
+        project = Project.create(organization=org, **form.cleaned_data)
         messages.success(request, f"{project.title} created.")
         return redirect("project_detail", pk=project.pk)
     return render(request, "projects/new.html", {"form": form})

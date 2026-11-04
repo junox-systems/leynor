@@ -22,7 +22,7 @@ class CampaignTests(TestCase):
             email="a@example.com", username="a", password="pw"
         )
         self.org = make_org(self.user)
-        self.project = Project.start(organization=self.org, title="Works")
+        self.project = Project.create(organization=self.org, title="Works")
         self.campaign = Campaign.objects.create(project=self.project, title="Launch")
 
     def test_campaigns_may_share_a_title(self):
@@ -33,7 +33,7 @@ class CampaignTests(TestCase):
         assert self.campaign.organization == self.org
 
     def test_a_unit_takes_the_campaign_goal_until_it_sets_its_own(self):
-        reel = Reel.start(campaign=self.campaign, title="Flying Eyes", slug="flying-eyes")
+        reel = Reel.create(campaign=self.campaign, title="Flying Eyes", slug="flying-eyes")
         assert reel.effective_goal == self.campaign.goal
 
         reel.goal = "follows"
@@ -49,7 +49,7 @@ class CampaignTests(TestCase):
         from apps.tiktok.models import TikTok
         from apps.twitter.models import Tweet
 
-        reel = Reel.start(campaign=self.campaign, title="Flying Eyes", slug="flying-eyes")
+        reel = Reel.create(campaign=self.campaign, title="Flying Eyes", slug="flying-eyes")
         TikTok.objects.create(campaign=self.campaign, title="Cut")
         Tweet.objects.create(campaign=self.campaign, title="Thread")
         Post.objects.create(campaign=self.campaign, title="Essay")
