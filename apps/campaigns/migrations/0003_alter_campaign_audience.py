@@ -4,6 +4,20 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+def carry_the_free_text_into_audiences(apps, schema_editor):
+    """Turn each campaign's audience text into an audience on its brand."""
+    Campaign = apps.get_model("campaigns", "Campaign")
+    Audience = apps.get_model("brands", "Audience")
+    for campaign in Campaign.objects.exclude(audience="").select_related("project"):
+        brand_id = campaign.project.brand_id
+        name = (campaign.audience or "").strip()[:120]
+        if not brand_id or not name:
+            continue
+        audience, _ = Audience.objects.get_or_create(brand_id=brand_id, name=name)
+        campaign.audience_link = audience
+        campaign.save(update_fields=["audience_link"])
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -12,9 +26,24 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
+        # The old column held free text, so it cannot be cast to a uuid in
+        # place. Add the key, carry the text into real audience rows, then drop
+        # the text column.
+        migrations.AddField(
+            model_name='campaign',
+            name='audience_link',
+            field=models.ForeignKey(blank=True, help_text="One of the brand's audiences. The campaign speaks to this slice.", null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='brands.audience'),
+        ),
+        migrations.RunPython(
+            carry_the_free_text_into_audiences, migrations.RunPython.noop
+        ),
+        migrations.RemoveField(
             model_name='campaign',
             name='audience',
-            field=models.ForeignKey(blank=True, help_text="One of the brand's audiences. The campaign speaks to this slice.", null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='campaigns', to='brands.audience'),
+        ),
+        migrations.RenameField(
+            model_name='campaign',
+            old_name='audience_link',
+            new_name='audience',
         ),
     ]
