@@ -23,7 +23,9 @@ def _campaign(request, pk):
         raise Http404("No organization.")
     # Scoped by organization: another tenant's campaign is a 404, not a 403.
     return get_object_or_404(
-        Campaign.objects.select_related("project"), pk=pk, project__organization=org
+        Campaign.objects.select_related("project", "audience"),
+        pk=pk,
+        project__organization=org,
     )
 
 
@@ -33,7 +35,7 @@ def campaign_list(request):
     campaigns = (
         Campaign.objects.filter(
             project__organization=org, project__status=Project.Status.ACTIVE
-        ).select_related("project")
+        ).select_related("project", "audience")
         if org
         else Campaign.objects.none()
     )

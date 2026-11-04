@@ -28,7 +28,9 @@
                         <td>
                             <a href="{% url 'campaign_detail' campaign.pk %}"
                                class="font-medium underline-offset-4 hover:underline">{{ campaign.title }}</a>
-
+                            {% if campaign.audience %}
+                                <div class="text-muted-foreground mt-0.5 text-xs">For {{ campaign.audience.name }}</div>
+                            {% endif %}
                         </td>
                         <td class="hidden sm:table-cell">
                             <a href="{% url 'project_detail' campaign.project.pk %}"

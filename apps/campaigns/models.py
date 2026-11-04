@@ -26,7 +26,14 @@ class Campaign(BaseModel):
     )
     title = models.CharField(max_length=120)
     goal = models.CharField(max_length=8, choices=Goal.choices, default=Goal.SAVES)
-    audience = models.CharField(max_length=200, blank=True)
+    audience = models.ForeignKey(
+        "brands.Audience",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="campaigns",
+        help_text="One of the brand's audiences. The campaign speaks to this slice.",
+    )
 
     class Meta:
         ordering = ["-created_at"]

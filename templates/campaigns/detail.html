@@ -14,9 +14,12 @@
                 <span>Goal: {{ campaign.get_goal_display }}</span>
                 {% if campaign.audience %}
                     <span aria-hidden="true">·</span>
-                    <span>For {{ campaign.audience }}</span>
+                    <span>For {{ campaign.audience.name }}</span>
                 {% endif %}
             </div>
+            {% if campaign.audience.description %}
+                <p class="text-muted-foreground mt-3 max-w-prose text-sm text-pretty">{{ campaign.audience.description }}</p>
+            {% endif %}
         </div>
         <c-btn href="{% url 'reel_new' campaign.pk %}">Add a reel</c-btn>
     </header>

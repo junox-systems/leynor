@@ -2,6 +2,7 @@ from django.contrib.messages import get_messages
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.brands.models import Audience, Brand
 from apps.campaigns.models import Campaign
 from apps.instagram.models import Reel
 from apps.orgs.models import OWNER, Membership, Organization, Role
@@ -32,7 +33,16 @@ class CampaignViewTestCase(TestCase):
     def setUp(self):
         self.user = make_user("alice")
         self.org = make_org(self.user)
-        self.project = Project.start(organization=self.org, title="Works")
+        self.brand = Brand.objects.create(organization=self.org, name="Flying Eyes")
+        self.audience = Audience.objects.create(
+            brand=self.brand,
+            name="Regulars",
+            description="They play records front to back.",
+            primary=True,
+        )
+        self.project = Project.start(
+            organization=self.org, title="Works", brand=self.brand
+        )
         self.campaign = Campaign.objects.create(
             project=self.project, title="Launch"
         )
@@ -76,7 +86,7 @@ class CreateTests(CampaignViewTestCase):
             {
                 "title": "Second Brief",
                 "goal": "shares",
-                "audience": "founders",
+                "audience": self.audience.pk,
             },
         )
         campaign = Campaign.objects.get(title="Second Brief")
@@ -84,8 +94,25 @@ class CreateTests(CampaignViewTestCase):
         assert response["Location"] == reverse("campaign_detail", args=[campaign.pk])
         assert campaign.project == self.project
         assert campaign.goal == "shares"
-        assert campaign.audience == "founders"
+        assert campaign.audience == self.audience
         assert messages_of(response) == ["Second Brief briefed."]
+
+    def test_an_audience_from_another_brand_is_refused(self):
+        other_brand = Brand.objects.create(organization=self.org, name="Other")
+        theirs = Audience.objects.create(brand=other_brand, name="Tourists")
+        response = self.client.post(
+            self.new,
+            {"title": "Misfire", "goal": "saves", "audience": theirs.pk},
+        )
+        assert response.status_code == 200
+        assert not Campaign.objects.filter(title="Misfire").exists()
+        assert "Select a valid choice" in response.content.decode()
+
+    def test_a_campaign_without_a_brand_offers_no_audience(self):
+        bare = Project.start(organization=self.org, title="Bare")
+        response = self.client.get(reverse("campaign_new", args=[bare.pk]))
+        assert response.status_code == 200
+        assert "Set a brand on this project" in response.content.decode()
 
     def test_campaigns_may_share_a_title(self):
         response = self.client.post(
