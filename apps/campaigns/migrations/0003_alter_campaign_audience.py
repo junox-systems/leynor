@@ -19,6 +19,9 @@ def carry_the_free_text_into_audiences(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    # Postgres refuses to alter a table with pending trigger events inside one
+    # transaction, and this migration writes rows while altering both tables.
+    atomic = False
 
     dependencies = [
         ('brands', '0002_remove_brand_audience_audience'),
