@@ -32,6 +32,15 @@ class CampaignTests(TestCase):
     def test_tenancy_resolves_through_the_project(self):
         assert self.campaign.organization == self.org
 
+    def test_a_unit_takes_the_campaign_goal_until_it_sets_its_own(self):
+        reel = Reel.start(campaign=self.campaign, title="Flying Eyes", slug="flying-eyes")
+        assert reel.effective_goal == self.campaign.goal
+
+        reel.goal = "follows"
+        reel.save()
+        assert reel.effective_goal == "follows"
+        assert self.campaign.goal == "saves"
+
     def test_a_campaign_starts_with_no_output_units(self):
         assert units(self.campaign) == []
 

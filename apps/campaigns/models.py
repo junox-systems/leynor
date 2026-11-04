@@ -60,6 +60,16 @@ class Unit(BaseModel):
         Campaign, on_delete=models.CASCADE, related_name="+"
     )
     title = models.CharField(max_length=120)
+    prompt = models.TextField(
+        blank=True,
+        help_text="What this piece must say, in the operator's words.",
+    )
+    goal = models.CharField(
+        max_length=8,
+        choices=Goal.choices,
+        blank=True,
+        help_text="The primary goal this piece chases. Empty takes the campaign's.",
+    )
 
     class Meta:
         abstract = True
@@ -71,6 +81,11 @@ class Unit(BaseModel):
     def organization(self):
         """Tenancy resolves through the campaign, so every unit is scoped."""
         return self.campaign.organization
+
+    @property
+    def effective_goal(self) -> str:
+        """The goal the piece is judged by: its own, or the brief's."""
+        return self.goal or self.campaign.goal
 
     @property
     def has_route(self) -> bool:
