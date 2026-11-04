@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='campaign',
             name='audience_link',
-            field=models.ForeignKey(blank=True, help_text="One of the brand's audiences. The campaign speaks to this slice.", null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='brands.audience'),
+            field=models.ForeignKey(blank=True, help_text="One of the brand's audiences. The campaign speaks to this slice.", null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='campaigns', to='brands.audience'),
         ),
         migrations.RunPython(
             carry_the_free_text_into_audiences, migrations.RunPython.noop
