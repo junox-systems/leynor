@@ -25,7 +25,9 @@ class Campaign(BaseModel):
         "projects.Project", on_delete=models.CASCADE, related_name="campaigns"
     )
     title = models.CharField(max_length=120)
-    goal = models.CharField(max_length=8, choices=Goal.choices, default=Goal.SAVES)
+    goal = models.TextField(
+        blank=True, help_text="What this campaign must achieve, in words."
+    )
     audience = models.ForeignKey(
         "brands.Audience",
         null=True,
@@ -68,7 +70,7 @@ class Unit(BaseModel):
         max_length=8,
         choices=Goal.choices,
         blank=True,
-        help_text="The primary goal this piece chases. Empty takes the campaign's.",
+        help_text="The one outcome this piece chases: saves, shares or follows.",
     )
 
     class Meta:
@@ -81,11 +83,6 @@ class Unit(BaseModel):
     def organization(self):
         """Tenancy resolves through the campaign, so every unit is scoped."""
         return self.campaign.organization
-
-    @property
-    def effective_goal(self) -> str:
-        """The goal the piece is judged by: its own, or the brief's."""
-        return self.goal or self.campaign.goal
 
     @property
     def has_route(self) -> bool:

@@ -99,7 +99,6 @@ class CreateTests(ReelViewTestCase):
         reel = Reel.objects.get(title="Brief")
         assert reel.prompt.startswith("Say why")
         assert reel.goal == "follows"
-        assert reel.effective_goal == "follows"
 
     def test_two_reels_with_the_same_title_get_numbered_slugs(self):
         payload = {"prompt": "", "goal": "", "target_seconds": 60}

@@ -42,7 +42,7 @@
                                 <a href="{% url 'campaign_detail' campaign.pk %}"
                                    class="font-medium underline-offset-4 hover:underline">{{ campaign.title }}</a>
                             </td>
-                            <td class="hidden sm:table-cell">{{ campaign.get_goal_display }}</td>
+                            <td class="hidden sm:table-cell">{{ campaign.goal|default:"—"|truncatechars:40 }}</td>
                             <td class="text-muted-foreground text-end text-xs">{{ campaign.updated_at|date:"j M Y" }}</td>
                         </tr>
                     {% endfor %}

@@ -36,7 +36,7 @@
                             <a href="{% url 'project_detail' campaign.project.pk %}"
                                class="underline-offset-4 hover:underline">{{ campaign.project.title }}</a>
                         </td>
-                        <td class="hidden sm:table-cell">{{ campaign.get_goal_display }}</td>
+                        <td class="hidden sm:table-cell">{{ campaign.goal|default:"—"|truncatechars:40 }}</td>
                         <td class="text-muted-foreground text-end text-xs">{{ campaign.updated_at|date:"j M Y" }}</td>
                     </tr>
                 {% endfor %}

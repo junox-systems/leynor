@@ -39,9 +39,13 @@ _Avoid_: Content piece, asset, item
 What one output unit must say, in the operator's words. Not the model prompt that ships with a step.
 _Avoid_: Instructions, description
 
-**Goal**:
-The single outcome a piece chases: saves, shares or follows. A unit may borrow the campaign's.
+**Goal** (on an output unit):
+The one outcome a piece chases: saves, shares or follows. It cannot be inherited.
 _Avoid_: Objective, KPI, target
+
+**Campaign goal**:
+What a campaign must achieve, in the operator's words. Written as prose, and never the same field as a unit's goal.
+_Avoid_: Aim, objective
 
 **Reel**:
 Instagram's output unit: a 9:16 video, 60 to 180 seconds, with a six-step route.

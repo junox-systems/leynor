@@ -9,7 +9,13 @@ class CampaignForm(forms.ModelForm):
     class Meta:
         model = Campaign
         fields = ["title", "goal", "audience"]
-        widgets = {"title": forms.TextInput(attrs={"autofocus": True})}
+        widgets = {
+            "title": forms.TextInput(attrs={"autofocus": True}),
+            "goal": forms.Textarea(attrs={"rows": 3}),
+        }
+        help_texts = {
+            "goal": "What this campaign must achieve, in words. Each output picks its own outcome.",
+        }
 
     def __init__(self, *args, project, **kwargs):
         self.project = project

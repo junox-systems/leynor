@@ -85,7 +85,7 @@ class CreateTests(CampaignViewTestCase):
             self.new,
             {
                 "title": "Second Brief",
-                "goal": "shares",
+                "goal": "Book the spring tour without paid ads.",
                 "audience": self.audience.pk,
             },
         )
@@ -93,7 +93,7 @@ class CreateTests(CampaignViewTestCase):
         assert response.status_code == 302
         assert response["Location"] == reverse("campaign_detail", args=[campaign.pk])
         assert campaign.project == self.project
-        assert campaign.goal == "shares"
+        assert "spring tour" in campaign.goal
         assert campaign.audience == self.audience
         assert messages_of(response) == ["Second Brief briefed."]
 
@@ -102,7 +102,7 @@ class CreateTests(CampaignViewTestCase):
         theirs = Audience.objects.create(brand=other_brand, name="Tourists")
         response = self.client.post(
             self.new,
-            {"title": "Misfire", "goal": "saves", "audience": theirs.pk},
+            {"title": "Misfire", "goal": "", "audience": theirs.pk},
         )
         assert response.status_code == 200
         assert not Campaign.objects.filter(title="Misfire").exists()
@@ -117,7 +117,7 @@ class CreateTests(CampaignViewTestCase):
     def test_campaigns_may_share_a_title(self):
         response = self.client.post(
             self.new,
-            {"title": "Launch", "goal": "saves", "audience": ""},
+            {"title": "Launch", "goal": "", "audience": ""},
         )
         assert response.status_code == 302
         assert Campaign.objects.filter(title="Launch").count() == 2

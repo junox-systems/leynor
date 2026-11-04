@@ -80,7 +80,7 @@
                                         <div class="flex flex-wrap items-center gap-2">
                                             <a href="{% url 'campaign_detail' entry.campaign.pk %}"
                                                class="text-sm font-medium underline-offset-4 hover:underline">{{ entry.campaign.title }}</a>
-                                            <c-badge variant="secondary">{{ entry.campaign.get_goal_display }}</c-badge>
+                                            <c-badge variant="secondary">{{ entry.campaign.goal|default:"No goal"|truncatechars:28 }}</c-badge>
                                         </div>
                                         <div class="mt-1.5 space-y-1">
                                             {% for unit in entry.units %}
