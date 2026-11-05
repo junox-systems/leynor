@@ -29,5 +29,5 @@ uv run python manage.py migrate --noinput
 export PATH="/app/frontend/node_modules/.bin:$PATH"
 
 echo "Starting supervisord..."
-# Start supervisord
-exec uv run supervisord -c /etc/supervisor/supervisord.conf
+# On PATH from the image's own venv, so the project venv cannot hide it.
+exec supervisord -c /etc/supervisor/supervisord.conf

@@ -30,8 +30,11 @@ RUN mise trust && mise install
 # add the mise shims directory to the PATH
 ENV PATH="/root/.local/share/mise/shims:${PATH}"
 
-# install supervisor
-RUN uv pip install supervisor --system
+# Supervisor belongs to the container, not the project: give it its own venv
+# so /app/.venv (a volume, and pruned to the lockfile by `uv sync`) cannot hide
+# it, and put that bin on PATH for init.sh.
+RUN uv venv /opt/supervisor && uv pip install --python /opt/supervisor/bin/python supervisor
+ENV PATH="/opt/supervisor/bin:${PATH}"
 
 # create log directory for supervisor
 RUN mkdir -p /var/log/supervisor
