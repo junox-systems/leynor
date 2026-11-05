@@ -26,7 +26,7 @@ def make_org(user, name="Acme"):
 
 
 def make_campaign(org, title="Launch"):
-    project = Project.start(organization=org, title=f"Works {title}")
+    project = Project.create(organization=org, title=f"Works {title}")
     return Campaign.objects.create(project=project, title=title)
 
 
@@ -39,7 +39,7 @@ class ReelViewTestCase(TestCase):
         self.user = make_user("alice")
         self.org = make_org(self.user)
         self.campaign = make_campaign(self.org)
-        self.reel = Reel.start(
+        self.reel = Reel.create(
             campaign=self.campaign, title="Flying Eyes", slug="flying-eyes"
         )
         self.client.force_login(self.user)
@@ -60,7 +60,7 @@ class AccessTests(ReelViewTestCase):
         outsider = make_user("otto")
         other = make_org(outsider, name="Other")
         theirs_campaign = make_campaign(other, title="Theirs")
-        theirs = Reel.start(campaign=theirs_campaign, title="Theirs", slug="theirs")
+        theirs = Reel.create(campaign=theirs_campaign, title="Theirs", slug="theirs")
         self.client.force_login(outsider)
 
         assert (
@@ -70,10 +70,15 @@ class AccessTests(ReelViewTestCase):
 
 
 class CreateTests(ReelViewTestCase):
-    def test_the_slug_comes_from_the_title_when_left_empty(self):
+    def test_the_slug_comes_from_the_title_without_being_typed(self):
         response = self.client.post(
             reverse("reel_new", args=[self.campaign.pk]),
-            {"title": "A Second Reel", "slug": "", "target_seconds": 90},
+            {
+                "title": "A Second Reel",
+                "prompt": "Say why the single was cut to 90 seconds.",
+                "goal": "",
+                "target_seconds": 90,
+            },
         )
         reel = Reel.objects.get(title="A Second Reel")
         assert response.status_code == 302
@@ -81,22 +86,40 @@ class CreateTests(ReelViewTestCase):
         assert reel.slug == "a-second-reel"
         assert reel.gates.count() == 6
 
-    def test_a_duplicate_slug_is_a_form_error_not_a_500(self):
-        response = self.client.post(
+    def test_the_prompt_and_goal_are_stored_on_the_reel(self):
+        self.client.post(
             reverse("reel_new", args=[self.campaign.pk]),
-            {"title": "Clash", "slug": "flying-eyes", "target_seconds": 60},
+            {
+                "title": "Brief",
+                "prompt": "Say why the single was cut to 90 seconds.",
+                "goal": "follows",
+                "target_seconds": 90,
+            },
         )
-        assert response.status_code == 200
-        assert Reel.objects.filter(slug="flying-eyes").count() == 1
-        assert "already uses that slug" in response.content.decode()
+        reel = Reel.objects.get(title="Brief")
+        assert reel.prompt.startswith("Say why")
+        assert reel.goal == "follows"
+
+    def test_two_reels_with_the_same_title_get_numbered_slugs(self):
+        payload = {"prompt": "", "goal": "", "target_seconds": 60}
+        for _ in range(2):
+            self.client.post(
+                reverse("reel_new", args=[self.campaign.pk]),
+                {"title": "Second Cut", **payload},
+            )
+        slugs = set(
+            Reel.objects.filter(title="Second Cut").values_list("slug", flat=True)
+        )
+        assert slugs == {"second-cut", "second-cut-2"}
 
     def test_a_reel_outside_the_duration_window_is_refused(self):
-        response = self.client.post(
-            reverse("reel_new", args=[self.campaign.pk]),
-            {"title": "Short", "slug": "short", "target_seconds": 30},
-        )
-        assert response.status_code == 200
-        assert not Reel.objects.filter(slug="short").exists()
+        for seconds in (30, 240):
+            response = self.client.post(
+                reverse("reel_new", args=[self.campaign.pk]),
+                {"title": "Off", "prompt": "", "goal": "", "target_seconds": seconds},
+            )
+            assert response.status_code == 200
+            assert not Reel.objects.filter(title="Off").exists()
 
 
 class GateTests(ReelViewTestCase):
@@ -182,7 +205,7 @@ class ListTests(ReelViewTestCase):
         outsider = make_user("otto")
         other = make_org(outsider, name="Other")
         theirs_campaign = make_campaign(other, title="Theirs")
-        Reel.start(campaign=theirs_campaign, title="Theirs", slug="theirs")
+        Reel.create(campaign=theirs_campaign, title="Theirs", slug="theirs")
         self.client.force_login(outsider)
 
         body = self.client.get(reverse("reels")).content.decode()

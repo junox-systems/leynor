@@ -25,8 +25,17 @@ class Campaign(BaseModel):
         "projects.Project", on_delete=models.CASCADE, related_name="campaigns"
     )
     title = models.CharField(max_length=120)
-    goal = models.CharField(max_length=8, choices=Goal.choices, default=Goal.SAVES)
-    audience = models.CharField(max_length=200, blank=True)
+    goal = models.TextField(
+        blank=True, help_text="What this campaign must achieve, in words."
+    )
+    audience = models.ForeignKey(
+        "brands.Audience",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="campaigns",
+        help_text="One of the brand's audiences. The campaign speaks to this slice.",
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -53,6 +62,16 @@ class Unit(BaseModel):
         Campaign, on_delete=models.CASCADE, related_name="+"
     )
     title = models.CharField(max_length=120)
+    prompt = models.TextField(
+        blank=True,
+        help_text="What this piece must say, in the operator's words.",
+    )
+    goal = models.CharField(
+        max_length=8,
+        choices=Goal.choices,
+        blank=True,
+        help_text="The one outcome this piece chases: saves, shares or follows.",
+    )
 
     class Meta:
         abstract = True

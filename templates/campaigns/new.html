@@ -8,7 +8,7 @@
     <c-breadcrumb back="{{ project.title }}" back_url="{% url 'project_detail' project.pk %}" current="New campaign" />
 
     <c-card title="Brief a campaign"
-            description="The brief is what every output unit answers: a title, the primary goal, and who it is for."
+            description="The brief is what every output unit answers: a title, what the campaign must achieve, and who it is for."
             lead>
         <c-form>
             <c-fields :form="form" />

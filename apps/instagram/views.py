@@ -63,8 +63,8 @@ def reel_new(request, campaign_pk):
     campaign = _campaign(request, campaign_pk)
     form = ReelForm(request.POST or None, campaign=campaign)
     if request.method == "POST" and form.is_valid():
-        reel = Reel.start(campaign=campaign, **form.cleaned_data)
-        messages.success(request, f"{reel.title} started on Spark.")
+        reel = Reel.create(campaign=campaign, **form.cleaned_data)
+        messages.success(request, f"{reel.title} created on Spark.")
         return redirect("reel_detail", pk=reel.pk)
     return render(
         request, "instagram/new.html", {"form": form, "campaign": campaign}

@@ -34,7 +34,7 @@ class ProjectViewTestCase(TestCase):
         self.user = make_user("alice")
         self.org = make_org(self.user)
         self.brand = Brand.objects.create(organization=self.org, name="Flying Eyes")
-        self.project = Project.start(
+        self.project = Project.create(
             organization=self.org,
             title="Works",
             brand=self.brand,
@@ -54,7 +54,7 @@ class AccessTests(ProjectViewTestCase):
     def test_another_organizations_project_is_a_404(self):
         outsider = make_user("otto")
         other = make_org(outsider, name="Other")
-        theirs = Project.start(organization=other, title="Theirs")
+        theirs = Project.create(organization=other, title="Theirs")
         self.client.force_login(outsider)
 
         assert (
@@ -75,7 +75,7 @@ class ListTests(ProjectViewTestCase):
     def test_the_list_shows_only_the_sessions_organization(self):
         outsider = make_user("otto")
         other = make_org(outsider, name="Other")
-        Project.start(organization=other, title="Theirs")
+        Project.create(organization=other, title="Theirs")
 
         body = self.client.get(reverse("projects")).content.decode()
         assert "Works" in body
@@ -148,7 +148,7 @@ class DetailTests(ProjectViewTestCase):
 class DeleteTests(ProjectViewTestCase):
     def test_deleting_a_project_takes_campaigns_and_reels_with_it(self):
         campaign = Campaign.objects.create(project=self.project, title="Launch")
-        reel = Reel.start(campaign=campaign, title="Flying Eyes", slug="flying-eyes")
+        reel = Reel.create(campaign=campaign, title="Flying Eyes", slug="flying-eyes")
 
         response = self.client.post(
             reverse("project_delete", args=[self.project.pk])

@@ -1,4 +1,4 @@
-"""The one form that starts a project."""
+"""The one form that creates a project."""
 
 from django import forms
 

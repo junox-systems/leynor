@@ -27,9 +27,10 @@
                 {% for brand in brands %}
                     <tr>
                         <td>
-                            <span class="font-medium">{{ brand.name }}</span>
-                            {% if brand.audience %}
-                                <div class="text-muted-foreground mt-0.5 text-xs">For {{ brand.audience }}</div>
+                            <a href="{% url 'brand_detail' brand.pk %}"
+                               class="font-medium underline-offset-4 hover:underline">{{ brand.name }}</a>
+                            {% if brand.primary_audience %}
+                                <div class="text-muted-foreground mt-0.5 text-xs">For {{ brand.primary_audience.name }}</div>
                             {% endif %}
                         </td>
                         <td class="hidden sm:table-cell">{{ brand.industry|default:"—" }}</td>
@@ -46,7 +47,7 @@
         </c-table>
     {% else %}
         <c-empty title="No brands yet"
-                 description="A brand records who the work is for: its voice, its audience and where it lives. Projects can point at one.">
+                 description="A brand records who the work is for: its voice, the audiences it speaks to and where it lives. Projects can point at one.">
             <c-slot name="icon"><c-icon.tag /></c-slot>
             <c-btn href="{% url 'brand_new' %}">Add a brand</c-btn>
         </c-empty>

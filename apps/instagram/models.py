@@ -10,6 +10,7 @@ from pydantic import ValidationError as PydanticValidationError
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
+from django.utils.text import slugify
 
 from apps.campaigns.models import PublicationBase, Unit
 from apps.campaigns.routes import (
@@ -36,12 +37,32 @@ def _position(step: str) -> int:
     return list(Step).index(Step(step))
 
 
+def _unique_slug(campaign, title: str) -> str:
+    """A stable key from the title, numbered when the campaign already has one."""
+    base = (slugify(title) or "reel")[:56]
+    taken = set(
+        Reel.objects.filter(campaign=campaign, slug__startswith=base).values_list(
+            "slug", flat=True
+        )
+    )
+    if base not in taken:
+        return base
+    suffix = 2
+    while f"{base}-{suffix}" in taken:
+        suffix += 1
+    return f"{base}-{suffix}"
+
+
 class Reel(Unit):
     # The spec, the visual seed and the render file names are keyed by slug.
+    # Derived from the title, so no one types it.
     slug = models.SlugField(max_length=64)
-    # A Reel is 60-120 seconds; the same window the spec enforces.
+    # A Reel is 60-180 seconds; the same window the spec enforces. Over 180
+    # Instagram stops recommending it to new audiences.
     target_seconds = models.PositiveSmallIntegerField(
-        default=60, validators=[MinValueValidator(60), MaxValueValidator(120)]
+        default=60,
+        validators=[MinValueValidator(60), MaxValueValidator(180)],
+        help_text="60 to 180 seconds.",
     )
     # Validated `ReelSpec` output. Empty until the storyboard step writes it.
     spec = models.JSONField(default=dict, blank=True)
@@ -54,13 +75,15 @@ class Reel(Unit):
         ]
 
     @classmethod
-    def start(cls, *, campaign, title, slug, target_seconds=60):
+    def create(cls, *, campaign, title, prompt="", goal="", target_seconds=60, slug=None):
         """Create the reel and its six pending gates in one transaction."""
         with transaction.atomic():
             reel = cls.objects.create(
                 campaign=campaign,
                 title=title,
-                slug=slug,
+                prompt=prompt,
+                goal=goal,
+                slug=slug or _unique_slug(campaign, title),
                 target_seconds=target_seconds,
             )
             reel.gates.bulk_create(

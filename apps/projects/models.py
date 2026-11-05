@@ -34,7 +34,7 @@ class Project(BaseModel):
         return self.title
 
     @classmethod
-    def start(cls, *, organization, title, brand=None, description=""):
+    def create(cls, *, organization, title, brand=None, description=""):
         return cls.objects.create(
             organization=organization,
             title=title,

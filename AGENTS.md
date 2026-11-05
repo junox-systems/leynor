@@ -84,11 +84,13 @@ Four layers, one direction: **channel app → engine → store/core**.
 | Container | `projects`, `campaigns` | hierarchy only, no channel imports |
 
 - Hierarchy: `Organization → Project → Campaign → channel unit`, with `Brand` beside projects as an optional client reference. A Reel is Instagram's unit; later channels add sibling units under the same campaign.
+- `Brand → Audience` is the people the work is for: name, description, wants, barrier, one primary per brand. Campaigns reference a brand audience; they never retype it (`docs/adr/0001-an-audience-belongs-to-the-brand.md`).
 - `campaigns.registry` (`UNITS`, `PUBLISHERS`, `UNIT_URLS`) is how campaigns and the dashboard find units. A new channel = one app + one dict entry, no edits elsewhere.
 - `campaigns.models.Unit` and `campaigns.routes.RouteGate` are abstract bases. Each channel subclasses them with its own unit FK, step choices and unique constraint.
+- `Unit` carries `title`, `prompt`, and an outcome `goal` (`saves`/`shares`/`follows`); `Campaign.goal` is free prose, a different field with a different meaning (`docs/adr/0002-the-unit-owns-its-prompt-and-goal.md`). A `Reel` adds a derived `slug` (60-180s `target_seconds`); the slug is the render key and is never typed (`docs/adr/0003-slug-is-derived-not-typed.md`).
 - `Unit.organization` resolves through the campaign. RBAC reads that attribute (`rbac._organization_of`); without it every unit page is denied.
 - `text.services.draft(brief, instructions=...)` is schema-free. `image.services.generate(slug, scenes, store)` reads only labels. `video` accepts a `ReelSpec` and returns an mp4.
-- Engines never import a channel app or an ORM model. Channel apps never import each other. Campaigns never import a channel app.
+- Engines never import a channel app or an ORM model. Channel apps never import each other. Campaigns never import a channel app or the brands app: reach audiences through `project.brand` (guarded by `tests/test_layering.py`).
 - Publishing settings: `INSTAGRAM_ACCOUNT_ID`, `INSTAGRAM_ACCESS_TOKEN`, `PUBLIC_MEDIA_BASE_URL`. Empty means `PublishUnavailable`, never a fake success.
 
 ### Models

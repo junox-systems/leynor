@@ -10,13 +10,15 @@
     <header class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
             <h2 class="text-2xl font-semibold tracking-tight text-balance">{{ campaign.title }}</h2>
-            <div class="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                <span>Goal: {{ campaign.get_goal_display }}</span>
-                {% if campaign.audience %}
-                    <span aria-hidden="true">·</span>
-                    <span>For {{ campaign.audience }}</span>
-                {% endif %}
-            </div>
+            {% if campaign.audience %}
+                <p class="text-muted-foreground mt-2 text-sm">For {{ campaign.audience.name }}</p>
+            {% endif %}
+            {% if campaign.goal %}
+                <p class="mt-3 max-w-prose text-sm text-pretty whitespace-pre-line">{{ campaign.goal }}</p>
+            {% endif %}
+            {% if campaign.audience.description %}
+                <p class="text-muted-foreground mt-2 max-w-prose text-sm text-pretty">{{ campaign.audience.description }}</p>
+            {% endif %}
         </div>
         <c-btn href="{% url 'reel_new' campaign.pk %}">Add a reel</c-btn>
     </header>

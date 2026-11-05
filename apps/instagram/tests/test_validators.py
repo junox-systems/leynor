@@ -135,10 +135,10 @@ def test_beats_must_match_scene_count(spec):
     assert validate_beats(beats(spec)[:-1], spec)
 
 
-def test_target_must_be_60_to_120():
+def test_target_must_be_60_to_180():
     from pydantic import ValidationError
 
-    for value in (30, 180):
+    for value in (30, 181):
         with pytest.raises(ValidationError):
             ReelSpec(
                 slug="ep-target",

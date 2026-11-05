@@ -16,9 +16,9 @@ class PublisherTests(TestCase):
         self.user = User.objects.create_user(
             email="a@example.com", username="a", password="pw"
         )
-        project = Project.start(organization=self._organization(), title="Works")
+        project = Project.create(organization=self._organization(), title="Works")
         self.campaign = Campaign.objects.create(project=project, title="Launch")
-        self.reel = Reel.start(
+        self.reel = Reel.create(
             campaign=self.campaign, title="Flying Eyes", slug="flying-eyes"
         )
 
