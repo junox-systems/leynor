@@ -4,6 +4,8 @@ from django.urls import path
 
 from .views import (
     DashboardActivityController,
+    ReelPitchController,
+    ReelRouteController,
     UserDetailController,
     UserListController,
 )
@@ -15,5 +17,15 @@ urlpatterns = [
         "dashboard/activity/",
         DashboardActivityController.as_view(),
         name="dashboard-activity",
+    ),
+    path(
+        "reels/<uuid:reel_id>/route/",
+        ReelRouteController.as_view(),
+        name="api-reel-route",
+    ),
+    path(
+        "reels/pitches/<uuid:pitch_id>/",
+        ReelPitchController.as_view(),
+        name="api-reel-pitch",
     ),
 ]

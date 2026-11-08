@@ -36,8 +36,8 @@
                                 {{ row.unit.summary }}
                             </p>
                         </div>
-                        {% if row.unit.current_gate.result == "rejected" %}
-                            <c-badge variant="destructive">Sent back</c-badge>
+                        {% if row.unit.current_gate.status == "failed" %}
+                            <c-badge variant="destructive">Stopped</c-badge>
                         {% else %}
                             <c-badge variant="primary">Your call</c-badge>
                         {% endif %}

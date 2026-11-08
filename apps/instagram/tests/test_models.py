@@ -40,6 +40,7 @@ class RouteTests(TestCase):
         assert [gate.step for gate in gates] == [step.value for step in Step]
         assert [gate.position for gate in gates] == list(range(6))
         assert {gate.step for gate in gates if gate.kind == "human"} == {
+            "idea",
             "board",
             "print",
         }
@@ -64,7 +65,7 @@ class RouteTests(TestCase):
         board.decide(GateResult.REJECTED, self.user, "Scene two has no visual beat")
 
         assert self.reel.current_gate.pk == board.pk
-        assert self.reel.needs_person is True
+        assert self.reel.needs_person is False  # the redo runs; nobody waits on it
         assert board.note == "Scene two has no visual beat"
         assert [row["state"] for row in self.reel.route()][2] == "rejected"
 
@@ -85,7 +86,7 @@ class RouteTests(TestCase):
         rows = self.reel.route()
         assert [row["name"] for row in rows][:2] == ["Spark", "Hook"]
         assert rows[0]["state"] == "current"
-        assert rows[0]["variant"] == "outline"
+        assert rows[0]["label"] == "Your call"
         assert rows[1]["state"] == "waiting"
 
     def test_slugs_are_unique_per_campaign(self):
@@ -117,3 +118,72 @@ class RouteTests(TestCase):
         self.reel.spec = {"slug": "flying-eyes", "title": "Broken", "scenes": []}
         with pytest.raises(ValidationError):
             self.reel.full_clean()
+
+
+class RunStateTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="a@example.com", username="a", password="pw"
+        )
+        self.reel = Reel.create(
+            campaign=make_campaign(make_org(self.user)), title="Flying Eyes"
+        )
+        self.reel.gates.get(step=Step.IDEA).decide(GateResult.APPROVED, self.user)
+        self.hook = self.reel.gates.get(step=Step.HOOK)
+
+    def test_a_gate_is_claimed_once(self):
+        assert self.hook.claim() is True
+        assert self.reel.gates.get(step=Step.HOOK).claim() is False
+
+    def test_running_failing_and_retrying_show_on_the_route(self):
+        self.hook.claim()
+        assert self.reel.route()[1]["state"] == "running"
+        assert self.reel.summary() == "Running Hook"
+        self.hook.fail("overlay too long")
+        assert self.reel.route()[1]["state"] == "failed"
+        assert self.reel.needs_person is True
+        self.hook.retry()
+        assert self.reel.route()[1]["state"] == "queued"
+        with pytest.raises(ValidationError):
+            self.hook.retry()
+
+    def test_a_redo_after_a_send_back_is_judged_again(self):
+        self.hook.decide(GateResult.AUTO, self.user)
+        board = self.reel.gates.get(step=Step.BOARD)
+        board.finish({"scenes": [1]})
+        assert board.awaiting_person
+        board.decide(GateResult.REJECTED, self.user, "less jargon")
+        assert not board.awaiting_person
+        board.finish({"scenes": [2]})
+        assert board.result == GateResult.PENDING
+        assert board.decided_by is None
+        assert board.awaiting_person
+
+
+class PitchModelTests(TestCase):
+    def setUp(self):
+        from apps.instagram.models import ReelPitch
+
+        self.user = User.objects.create_user(
+            email="a@example.com", username="a", password="pw"
+        )
+        self.pitch = ReelPitch.objects.create(
+            campaign=make_campaign(make_org(self.user)), idea="An idea", goal="shares",
+            rounds=[{"feedback": "", "concepts": [{"title": f"Take {n}"} for n in (1, 2, 3)]}],
+            status="ready",
+        )
+
+    def test_a_pick_records_the_choice_and_the_rest_as_alternatives(self):
+        reel, created = self.pitch.pick(round_index=0, concept_index=1, user=self.user, note="warm")
+        assert created and reel.title == "Take 2" and reel.goal == "shares"
+        spark = reel.gates.get(step=Step.IDEA)
+        assert spark.result == GateResult.APPROVED
+        assert [a["title"] for a in spark.output["alternatives"]] == ["Take 1", "Take 3"]
+        again, created = self.pitch.pick(round_index=0, concept_index=0, user=self.user)
+        assert again == reel and created is False
+
+    def test_a_concept_that_is_not_there_is_refused(self):
+        from apps.instagram.models import PitchError
+
+        with pytest.raises(PitchError):
+            self.pitch.pick(round_index=3, concept_index=0, user=self.user)

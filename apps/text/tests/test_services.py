@@ -52,3 +52,21 @@ def test_draft_runs_without_instructions(captured):
     services.draft("a brief")
     assert captured["skills"] == ""
     assert captured["brief"] == "a brief"
+
+
+def test_structured_returns_the_callers_type():
+    from pydantic import BaseModel
+    from pydantic_ai.models.test import TestModel
+
+    class Pair(BaseModel):
+        left: str
+        right: int
+
+    result = services.structured("two things", output_type=Pair, model=TestModel())
+    assert isinstance(result, Pair)
+
+
+def test_structured_without_a_model_says_so(settings):
+    settings.APP_LLM_MODEL = ""
+    with pytest.raises(services.NoModel, match="APP_LLM_MODEL"):
+        services.structured("x", output_type=str)

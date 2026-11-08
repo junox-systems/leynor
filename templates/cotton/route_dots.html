@@ -1,5 +1,5 @@
 {% comment %}
-    Six marks, one per gate, in route order: passed, sent back, in play, waiting.
+    Six marks, one per gate, in route order: passed, stopped or sent back, running, in play, waiting.
     The step in play is wider, so it reads at a glance in a table cell.
     Usage: route-dots, with :unit bound to anything that has a route().
 {% endcomment %}
@@ -10,9 +10,11 @@
     {% for row in unit.route %}
         {% if row.state == "passed" %}
             <span class="bg-primary h-1.5 w-6 rounded-full"></span>
-        {% elif row.state == "rejected" %}
-            <span class="bg-destructive h-1.5 w-6 rounded-full"></span>
-        {% elif row.state == "current" %}
+        {% elif row.state == "rejected" or row.state == "failed" %}
+            <span class="bg-destructive h-1.5 w-8 rounded-full"></span>
+        {% elif row.state == "running" %}
+            <span class="bg-primary/60 h-1.5 w-8 animate-pulse rounded-full motion-reduce:animate-none"></span>
+        {% elif row.state == "current" or row.state == "queued" %}
             <span class="bg-primary/60 h-1.5 w-8 rounded-full"></span>
         {% else %}
             <span class="bg-muted h-1.5 w-6 rounded-full"></span>

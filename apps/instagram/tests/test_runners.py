@@ -13,9 +13,9 @@ def test_every_step_has_a_runner():
 
 
 def test_runner_resolves_the_owning_app_function():
-    assert runner(Step.IDEA).__name__ == "draft_step"
-    assert runner(Step.VOICE).__name__ == "run_voice"
-    assert runner(Step.PRINT).__name__ == "run_print"
+    assert runner(Step.IDEA).__name__ == "pitch_concepts"
+    assert runner(Step.VOICE).__name__ == "voice_step"
+    assert runner(Step.PRINT).__name__ == "print_step"
 
 
 def test_unknown_step_is_reported():

@@ -7,10 +7,33 @@
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <p class="text-muted-foreground text-sm">
-            Every reel in this organization. A reel belongs to one campaign; its six gates decide its state.
+            Every reel in this organization. A reel starts from an idea in a campaign and runs six steps; it stops only where you decide.
         </p>
         <c-btn href="{% url 'campaigns' %}" variant="outline">Campaigns</c-btn>
     </div>
+
+    {% if pitches %}
+        <section class="space-y-3" aria-labelledby="ideas-title">
+            <h3 id="ideas-title" class="text-sm font-semibold">Ideas waiting for a pick</h3>
+            <ul class="divide-border divide-y rounded-lg border">
+                {% for pitch in pitches %}
+                    <li class="flex flex-wrap items-center gap-3 px-4 py-3">
+                        <div class="min-w-0 flex-1">
+                            <a href="{% url 'reel_pitch' pitch.pk %}" class="line-clamp-1 font-medium underline-offset-4 hover:underline">{{ pitch.idea }}</a>
+                            <p class="text-muted-foreground mt-0.5 text-xs">{{ pitch.campaign.title }} · {{ pitch.rounds|length }} round{{ pitch.rounds|length|pluralize }}</p>
+                        </div>
+                        {% if pitch.status == "failed" %}
+                            <c-badge variant="destructive">Stopped</c-badge>
+                        {% elif pitch.working %}
+                            <c-badge variant="outline">Writing</c-badge>
+                        {% else %}
+                            <c-badge variant="primary">Your pick</c-badge>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
+    {% endif %}
 
     {% if reels %}
         <c-table>
@@ -40,8 +63,10 @@
                         <td>
                             {% if reel.complete %}
                                 <c-badge variant="secondary">Complete</c-badge>
-                            {% elif reel.current_gate.result == "rejected" %}
-                                <c-badge variant="destructive">Sent back</c-badge>
+                            {% elif reel.current_gate.status == "failed" %}
+                                <c-badge variant="destructive">{{ reel.summary }}</c-badge>
+                            {% elif reel.needs_person %}
+                                <c-badge variant="primary">{{ reel.summary }}</c-badge>
                             {% else %}
                                 <span class="text-sm">{{ reel.summary }}</span>
                             {% endif %}

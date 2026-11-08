@@ -15,8 +15,8 @@ ALLOWED = {
     "projects": set(),
     "campaigns": {"projects"},
     "brands": set(),
-    # A channel may import the campaign layer and every engine.
-    "instagram": {"campaigns", "projects", "text", "image", "video"},
+    # A channel may import the campaign layer, every engine and the store.
+    "instagram": {"campaigns", "projects", "text", "image", "video", "runs"},
     "tiktok": {"campaigns"},
     "twitter": {"campaigns"},
     "linkedin": {"campaigns"},

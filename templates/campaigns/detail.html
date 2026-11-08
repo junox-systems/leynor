@@ -20,7 +20,7 @@
                 <p class="text-muted-foreground mt-2 max-w-prose text-sm text-pretty">{{ campaign.audience.description }}</p>
             {% endif %}
         </div>
-        <c-btn href="{% url 'reel_new' campaign.pk %}">Add a reel</c-btn>
+        <c-btn href="{% url 'reel_new' campaign.pk %}">New reel from an idea</c-btn>
     </header>
 
     <section class="space-y-3" aria-labelledby="outputs-title">
@@ -53,9 +53,9 @@
             </ul>
         {% else %}
             <c-empty title="No outputs yet"
-                     description="A reel turns this brief into a 9:16 video: Spark, Hook, Board, Look, Voice, Print.">
+                     description="Start with an idea. A reel runs Spark, Hook, Board, Look, Voice, Print, and stops only for your pick, the storyboard and the cut.">
                 <c-slot name="icon"><c-icon.film /></c-slot>
-                <c-btn href="{% url 'reel_new' campaign.pk %}">Add a reel</c-btn>
+                <c-btn href="{% url 'reel_new' campaign.pk %}">New reel from an idea</c-btn>
             </c-empty>
         {% endif %}
     </section>
