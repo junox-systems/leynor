@@ -1,5 +1,6 @@
 """Model output that passes the real validators, for tests that fake the text engine."""
 
+from contextlib import contextmanager
 from unittest import mock
 
 from apps.instagram import services
@@ -74,7 +75,7 @@ class FakeText:
         self.fail_on = fail_on
         self.briefs = []
 
-    def __call__(self, brief, *, output_type, instructions=""):
+    def __call__(self, brief, *, output_type, instructions="", model=None, model_settings=None):
         self.briefs.append((output_type.__name__, brief))
         if output_type is self.fail_on:
             raise RuntimeError("model unavailable")
@@ -86,8 +87,14 @@ class FakeText:
             return board()
         raise AssertionError(output_type)
 
+    @contextmanager
     def patch(self):
-        return mock.patch.object(services, "structured", self)
+        """Fake the text engine, and the model lookup that would hit the AI config."""
+        with (
+            mock.patch.object(services, "structured", self),
+            mock.patch.object(services, "llm", lambda purpose, session=None: (None, {})),
+        ):
+            yield self
 
 
 def fake_voice(reel, note=""):

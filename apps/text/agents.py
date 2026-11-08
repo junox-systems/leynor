@@ -47,8 +47,8 @@ class Agents:
         )
 
 
-def build_agents(model: str | None = None, skills: str = "") -> Agents:
-    """Build the three agents. Model strings look like 'openai:gpt-5-mini'."""
+def build_agents(model, skills: str = "") -> Agents:
+    """Build the three agents on one model (a pydantic-ai Model or 'provider:name')."""
     options: dict = {"defer_model_check": True}
     if model:
         options["model"] = model

@@ -11,6 +11,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 from pydantic import ValidationError as SchemaError
 
+from apps.ai.services import llm
 from apps.instagram.gates import Step
 from apps.instagram.steps import resolve
 from apps.instagram.validators import (
@@ -198,8 +199,12 @@ def concept_problems(concepts: list[dict], goal: str, has_audience: bool) -> lis
 # -- the steps -----------------------------------------------------------------
 
 
-def _attempt(brief: str, output_type, instructions: str, check):
-    """Draft, check, and redraft once with the failures named."""
+def _attempt(purpose: str, session: str, brief: str, output_type, instructions: str, check):
+    """Draft with the job's model, check, and redraft once with the failures named.
+
+    `session` is one id per conversation (an idea, a reel) for providers that route on it.
+    """
+    model, model_settings = llm(purpose, session)
     problems: list[str] = []
     for _ in range(ATTEMPTS):
         steer = (
@@ -208,7 +213,13 @@ def _attempt(brief: str, output_type, instructions: str, check):
             if problems
             else ""
         )
-        result = structured(brief + steer, output_type=output_type, instructions=instructions)
+        result = structured(
+            brief + steer,
+            output_type=output_type,
+            instructions=instructions,
+            model=model,
+            model_settings=model_settings,
+        )
         value, problems = check(result)
         if not problems:
             return value
@@ -223,7 +234,9 @@ def pitch_concepts(pitch) -> list[dict]:
         concepts = [concept.model_dump() for concept in result.concepts]
         return concepts, concept_problems(concepts, pitch.goal, has_audience)
 
-    return _attempt(pitch_brief(pitch), ConceptSet, _skills(Step.IDEA, Step.HOOK), check)
+    return _attempt(
+        "instagram.spark", f"pitch-{pitch.pk}", pitch_brief(pitch), ConceptSet, _skills(Step.IDEA, Step.HOOK), check
+    )
 
 
 def kicker(campaign) -> str:
@@ -272,7 +285,7 @@ def hooks_step(reel, note: str = "") -> dict:
         ]
         return {"hooks": rows}, validate_hooks(rows)
 
-    return _attempt(brief, HookSet, _skills(Step.HOOK), check)
+    return _attempt("instagram.hook", f"reel-{reel.pk}", brief, HookSet, _skills(Step.HOOK), check)
 
 
 def board_step(reel, note: str = "") -> dict:
@@ -331,7 +344,7 @@ def board_step(reel, note: str = "") -> dict:
         }
         return output, problems
 
-    output = _attempt(brief, Board, _skills(Step.BOARD), check)
+    output = _attempt("instagram.board", f"reel-{reel.pk}", brief, Board, _skills(Step.BOARD), check)
     reel.spec = output.pop("spec")
     reel.save(update_fields=["spec", "updated_at"])
     return output

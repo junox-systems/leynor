@@ -165,6 +165,7 @@ check-deploy:
         SECRET_KEY=deploy-check-only-key-0123456789abcdefghijklmnopqrstuvwxyz \
         DEFAULT_FROM_EMAIL=noreply@example.com \
         ALLOWED_HOSTS=example.com \
+        APP_SECRETS_KEY=bGV5bm9yLWRlcGxveS1jaGVjay1vbmx5LWtleS0zMmI= \
         CSRF_TRUSTED_ORIGINS=https://example.com \
         uv run python manage.py check --deploy --fail-level WARNING
 
