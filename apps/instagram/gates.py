@@ -15,6 +15,7 @@ __all__ = [
     "HUMAN_GATES",
     "UNDECIDED",
     "GateResult",
+    "HEAVY_STEPS",
     "Step",
     "gate_kind",
     "needs_human",
@@ -31,8 +32,11 @@ class Step(models.TextChoices):
     PRINT = "print", "Print"
 
 
-# A person decides these; everything else passes on evidence.
-HUMAN_GATES = frozenset({Step.BOARD, Step.PRINT})
+# A person decides these; everything else passes on evidence. Spark is the
+# pick between three concepts, so it is a person's call too.
+HUMAN_GATES = frozenset({Step.IDEA, Step.BOARD, Step.PRINT})
+# These run on the heavy worker: TTS, alignment, compose and encode.
+HEAVY_STEPS = frozenset({Step.VOICE, Step.PRINT})
 AUTO_GATES = frozenset(Step) - HUMAN_GATES
 
 

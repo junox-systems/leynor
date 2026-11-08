@@ -1,0 +1,149 @@
+{% extends "base_app.html" %}
+
+{% block title %}Three takes — {{ app_name }}{% endblock %}
+{% block page_title %}New reel{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <c-breadcrumb back="{{ campaign.title }}" back_url="{% url 'campaign_detail' campaign.pk %}" current="New reel" />
+
+    <header class="space-y-3">
+        <h2 class="text-2xl font-semibold tracking-tight text-balance">
+            {% if latest %}Pick the take to build{% elif pitch.working %}Three takes on the way{% else %}Your idea{% endif %}
+        </h2>
+        <blockquote class="max-w-prose text-sm text-pretty whitespace-pre-line">{{ pitch.idea }}</blockquote>
+        <p class="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 text-sm">
+            <span>{% if campaign.audience %}For {{ campaign.audience.name }}{% else %}No audience{% endif %}</span>
+            <span aria-hidden="true">·</span>
+            <span>Chasing {{ pitch.get_goal_display|lower }}</span>
+            <span aria-hidden="true">·</span>
+            <span class="tabular-nums">{{ pitch.target_seconds }} seconds</span>
+        </p>
+    </header>
+
+    {{ status|json_script:"run-status" }}
+    <div data-controller="svelte-bridge"
+         data-svelte-bridge-component-value="instagram/RouteStatus"
+         data-svelte-bridge-props-id-value="run-status"></div>
+
+    {% if pitch.status == "failed" %}
+        <c-alert variant="destructive">
+            <c-icon.triangle-alert />
+            <h3>The takes could not be written</h3>
+            <section class="space-y-3">
+                <p>{{ pitch.error|default:"Something went wrong." }}</p>
+                <c-form action="{% url 'reel_pitch_decide' pitch.pk %}">
+                    <input type="hidden" name="note" value="{{ pitch.feedback }}">
+                    <c-btn type="submit" name="action" value="again" variant="outline" size="sm">Try again</c-btn>
+                </c-form>
+            </section>
+        </c-alert>
+    {% endif %}
+
+    {% if latest %}
+        <c-form action="{% url 'reel_pitch_decide' pitch.pk %}" class="space-y-6">
+            <fieldset class="min-w-0">
+                <legend class="sr-only">Choose one take</legend>
+                {% if latest.feedback %}
+                    <p class="text-muted-foreground mb-3 text-sm">Round {{ latest.number }}, after your note: “{{ latest.feedback }}”</p>
+                {% endif %}
+                <div class="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pt-1 pb-3 md:-mx-6 md:scroll-px-6 md:px-6 lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-4 lg:overflow-visible lg:px-0 lg:pb-0">
+                    {% for concept in latest.concepts %}
+                        <c-choice name="concept" value="{{ concept.value }}" required
+                                  class="w-[86%] max-w-sm shrink-0 snap-center gap-3 sm:w-[60%] lg:w-auto lg:max-w-none"
+                                  aria-describedby="take-{{ concept.value|slugify }}-hook">
+                            <span class="text-muted-foreground text-xs tabular-nums">Take {{ concept.number }} of {{ latest.concepts|length }}</span>
+                            <span class="font-heading text-base leading-snug font-semibold text-balance">{{ concept.title }}</span>
+                            <c-reel-frame :design="design" overlay="{{ concept.hook.overlay }}" spoken="{{ concept.hook.spoken }}"
+                                          kicker="{{ kicker }}" :count="concept.count" guides="1" class="mx-auto my-1 max-w-56" />
+                            <dl class="space-y-3">
+                                <div>
+                                    <dt class="text-muted-foreground text-xs">Opens with</dt>
+                                    <dd id="take-{{ concept.value|slugify }}-hook" class="mt-0.5 text-pretty">“{{ concept.hook.spoken }}”</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-muted-foreground text-xs">Why it lands</dt>
+                                    <dd class="mt-0.5 text-pretty">{{ concept.insight }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-muted-foreground text-xs">How it unfolds</dt>
+                                    <dd class="mt-1">
+                                        <ol class="space-y-1">
+                                            {% for beat in concept.beats %}
+                                                <li class="flex gap-2">
+                                                    <span class="text-muted-foreground w-4 shrink-0 text-xs leading-5 tabular-nums">{{ forloop.counter }}</span>
+                                                    <span class="min-w-0 flex-1">{{ beat.name }}</span>
+                                                    <span class="text-muted-foreground shrink-0 text-xs leading-5 tabular-nums">{{ beat.seconds|floatformat:0 }}s</span>
+                                                </li>
+                                            {% endfor %}
+                                        </ol>
+                                    </dd>
+                                </div>
+                            </dl>
+                            <details class="border-t pt-2">
+                                <summary class="text-muted-foreground hover:text-foreground cursor-pointer text-xs font-medium">The case against it</summary>
+                                <p class="mt-2 text-pretty">{{ concept.objection }}</p>
+                                <p class="text-muted-foreground mt-1 text-pretty">{{ concept.answer }}</p>
+                            </details>
+                        </c-choice>
+                    {% endfor %}
+                </div>
+            </fieldset>
+
+            {% if earlier %}
+                <details class="rounded-lg border">
+                    <summary class="cursor-pointer px-4 py-3 text-sm font-medium">Earlier takes ({{ earlier|length }} round{{ earlier|length|pluralize }})</summary>
+                    <div class="space-y-5 border-t px-4 py-4">
+                        {% for round in earlier %}
+                            <fieldset class="min-w-0 space-y-2">
+                                <legend class="text-muted-foreground text-xs">Round {{ round.number }}{% if round.feedback %}, after “{{ round.feedback }}”{% endif %}</legend>
+                                <div class="grid gap-2 md:grid-cols-3">
+                                    {% for concept in round.concepts %}
+                                        <c-choice name="concept" value="{{ concept.value }}">
+                                            <span class="font-medium text-balance">{{ concept.title }}</span>
+                                            <span class="text-muted-foreground text-pretty">“{{ concept.hook.spoken }}”</span>
+                                        </c-choice>
+                                    {% endfor %}
+                                </div>
+                            </fieldset>
+                        {% endfor %}
+                    </div>
+                </details>
+            {% endif %}
+
+            <div class="bg-background/95 supports-backdrop-filter:bg-background/85 sticky bottom-0 z-10 -mx-4 border-t px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:-mx-6 md:px-6">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <div class="field min-w-0 flex-1 gap-1.5">
+                        <label for="pitch-note">Note <span class="text-muted-foreground font-normal">(optional)</span></label>
+                        <input type="text" id="pitch-note" name="note" maxlength="500" autocomplete="off"
+                               placeholder="Building: what to keep in mind. New takes: what to change."
+                               aria-describedby="pitch-note-help">
+                        <p id="pitch-note-help" class="sr-only">With Build this one, the note guides the hook and the storyboard. With Three new takes, it says what the next round should change.</p>
+                    </div>
+                    <div class="flex gap-2">
+                        {% if pitch.working %}
+                            <c-btn type="button" variant="outline" class="flex-1 sm:flex-none" disabled>Writing new takes…</c-btn>
+                        {% else %}
+                            <c-btn type="submit" name="action" value="again" variant="outline" formnovalidate
+                                   class="flex-1 sm:flex-none">Three new takes</c-btn>
+                        {% endif %}
+                        <c-btn type="submit" name="action" value="pick" class="flex-1 sm:flex-none">Build this one</c-btn>
+                    </div>
+                </div>
+            </div>
+        </c-form>
+    {% elif pitch.working %}
+        <div class="-mx-4 flex gap-3 overflow-hidden px-4 md:-mx-6 md:px-6 lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-4 lg:px-0" aria-hidden="true">
+            {% for _ in "123" %}
+                <div class="w-[86%] max-w-sm shrink-0 space-y-3 rounded-lg border p-3 sm:w-[60%] lg:w-auto lg:max-w-none">
+                    <div class="bg-muted h-3 w-16 animate-pulse rounded motion-reduce:animate-none"></div>
+                    <div class="bg-muted h-4 w-3/4 animate-pulse rounded motion-reduce:animate-none"></div>
+                    <div class="bg-muted mx-auto aspect-9/16 w-full max-w-56 animate-pulse rounded-xl motion-reduce:animate-none"></div>
+                    <div class="bg-muted h-3 w-full animate-pulse rounded motion-reduce:animate-none"></div>
+                    <div class="bg-muted h-3 w-5/6 animate-pulse rounded motion-reduce:animate-none"></div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -35,7 +35,8 @@ def validate_idea(record: dict | None) -> list[str]:
     insight = (record.get("insight") or "").strip()
     if not 20 <= len(sentence) <= 180:
         problems.append("idea sentence must be 20-180 characters")
-    if " wants " not in f" {insight.lower()} ":
+    # Models write "runners want", "she needs": the template word, not its exact form.
+    if not re.search(r"\b(wants?|needs?)\b", insight.lower()):
         problems.append("insight must name what the audience wants")
     if " but " not in f" {insight.lower()} ":
         problems.append("insight must name what stands in the way (but ...)")

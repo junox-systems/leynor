@@ -4,16 +4,76 @@
 {% block page_title %}New reel{% endblock %}
 
 {% block content %}
-<div class="w-full max-w-xl space-y-6">
+<div class="w-full max-w-2xl space-y-6">
     <c-breadcrumb back="{{ campaign.title }}" back_url="{% url 'campaign_detail' campaign.pk %}" current="New reel" />
 
-    <c-card title="Create a reel"
-            description="The prompt is what this piece must say. Every reel opens with all six gates waiting; you pass each one in turn."
-            lead>
-        <c-form>
-            <c-fields :form="form" />
-            <c-btn type="submit">Create</c-btn>
-        </c-form>
-    </c-card>
+    <header>
+        <h2 class="text-2xl font-semibold tracking-tight text-balance">Start from an idea</h2>
+        <p class="text-muted-foreground mt-2 max-w-prose text-sm text-pretty">
+            Say what the reel is about. You get three takes to choose from, then the route runs on its own
+            and stops only for the storyboard and the final cut.
+        </p>
+    </header>
+
+    {% if not campaign.audience %}
+        <c-alert>
+            <c-icon.info />
+            <h3>This campaign has no audience</h3>
+            <section>
+                Takes are sharper when they know who they speak to.
+                {% if campaign.project.brand %}
+                    Add one on <a class="underline underline-offset-4" href="{% url 'brand_detail' campaign.project.brand.pk %}">{{ campaign.project.brand.name }}</a> and choose it for this campaign, or carry on without one.
+                {% else %}
+                    Give the project a brand with an audience, or carry on without one.
+                {% endif %}
+            </section>
+        </c-alert>
+    {% else %}
+        <p class="text-sm">Speaking to <span class="font-medium">{{ campaign.audience.name }}</span>{% if campaign.audience.wants %}, who want {{ campaign.audience.wants|lower }}{% endif %}.</p>
+    {% endif %}
+
+    <c-form class="space-y-6">
+        {% if form.non_field_errors %}
+            <c-alert variant="destructive">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</c-alert>
+        {% endif %}
+
+        <c-field for="{{ form.idea.id_for_label }}" :label="form.idea.label" :help="form.idea.help_text" :errors="form.idea.errors">{{ form.idea }}</c-field>
+
+        <fieldset class="space-y-2" aria-describedby="goal-help">
+            <legend class="text-sm font-medium">{{ form.goal.label }}</legend>
+            <div class="grid gap-2 sm:grid-cols-3">
+                {% for choice in form.goal %}
+                    <c-choice name="{{ form.goal.html_name }}" value="{{ choice.data.value }}" required
+                              checked="{% if form.goal.value == choice.data.value %}1{% endif %}">
+                        <span class="font-medium">{{ choice.choice_label }}</span>
+                        <span class="text-muted-foreground text-xs">
+                            {% if choice.data.value == "saves" %}Worth coming back to{% elif choice.data.value == "shares" %}Worth sending on{% else %}A reason to follow{% endif %}
+                        </span>
+                    </c-choice>
+                {% endfor %}
+            </div>
+            <p id="goal-help" class="text-muted-foreground text-sm">Every take is built to earn this.</p>
+            {% if form.goal.errors %}<p class="text-destructive text-sm" role="alert">{{ form.goal.errors|join:" " }}</p>{% endif %}
+        </fieldset>
+
+        <fieldset class="space-y-2" aria-describedby="length-help">
+            <legend class="text-sm font-medium">{{ form.target_seconds.label }}</legend>
+            <div class="grid grid-cols-4 gap-2">
+                {% for choice in form.target_seconds %}
+                    <c-choice name="{{ form.target_seconds.html_name }}" value="{{ choice.data.value }}" required compact="1"
+                              checked="{% if form.target_seconds.value|stringformat:'s' == choice.data.value|stringformat:'s' %}1{% endif %}">
+                        <span class="font-medium tabular-nums">{{ choice.choice_label }}</span>
+                    </c-choice>
+                {% endfor %}
+            </div>
+            <p id="length-help" class="text-muted-foreground text-sm">{{ form.target_seconds.help_text }}</p>
+            {% if form.target_seconds.errors %}<p class="text-destructive text-sm" role="alert">{{ form.target_seconds.errors|join:" " }}</p>{% endif %}
+        </fieldset>
+
+        <div class="flex flex-wrap items-center gap-3">
+            <c-btn type="submit">Write three takes</c-btn>
+            <p class="text-muted-foreground text-sm">About a minute. You can leave this page.</p>
+        </div>
+    </c-form>
 </div>
 {% endblock %}

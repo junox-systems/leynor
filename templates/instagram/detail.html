@@ -11,98 +11,207 @@
         <div class="min-w-0">
             <h2 class="text-2xl font-semibold tracking-tight text-balance">{{ reel.title }}</h2>
             <div class="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                <span>{{ reel.target_seconds }} seconds</span>
-                <span aria-hidden="true">·</span>
-                {% if reel.goal %}<span>Chasing {{ reel.get_goal_display }}</span>
-                <span aria-hidden="true">·</span>{% endif %}
-                <span>Created {{ reel.created_at|date:"j M Y" }}</span>
+                <span class="tabular-nums">{{ reel.target_seconds }} seconds</span>
+                {% if reel.goal %}<span aria-hidden="true">·</span><span>Chasing {{ reel.get_goal_display|lower }}</span>{% endif %}
+                {% if reel.campaign.audience %}<span aria-hidden="true">·</span><span>For {{ reel.campaign.audience.name }}</span>{% endif %}
             </div>
         </div>
         {% if reel.complete %}
             <c-badge variant="primary">Complete</c-badge>
-        {% elif reel.current_gate.result == "rejected" %}
-            <c-badge variant="destructive">Sent back</c-badge>
+        {% elif reel.current_gate.status == "failed" %}
+            <c-badge variant="destructive">{{ reel.summary }}</c-badge>
+        {% elif reel.needs_person %}
+            <c-badge variant="primary">{{ reel.summary }}</c-badge>
         {% else %}
-            <c-badge variant="secondary">Step {{ reel.current_gate.position|add:1 }} of 6</c-badge>
+            <c-badge variant="secondary">{{ reel.summary }}</c-badge>
         {% endif %}
     </header>
 
-    <div class="space-y-2">
-        <div class="flex items-center justify-between text-sm">
-            <span class="font-medium">{{ reel.passed }} of 6 gates passed</span>
-            <span class="text-muted-foreground tabular-nums">{{ reel.percent }}%</span>
-        </div>
-        <c-progress :percent="reel.percent" />
-    </div>
+    {{ status|json_script:"run-status" }}
+    <div data-controller="svelte-bridge"
+         data-svelte-bridge-component-value="instagram/RouteStatus"
+         data-svelte-bridge-props-id-value="run-status"></div>
 
-    <ol class="divide-border divide-y rounded-lg border">
-        {% for row in route %}
-            <li class="flex gap-4 px-4 py-4">
-                <span class="grid size-7 shrink-0 place-items-center rounded-full border font-mono text-xs tabular-nums
-                    {% if row.state == 'passed' %}border-primary bg-primary text-primary-foreground
-                    {% elif row.state == 'rejected' %}border-destructive text-destructive
-                    {% else %}text-muted-foreground{% endif %}">{{ row.spec.index }}</span>
-
-                <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <h3 class="text-sm font-medium">{{ row.name }}</h3>
-                        <c-badge :variant="row.variant">{{ row.label }}</c-badge>
-                        <span class="text-muted-foreground text-xs">{{ row.human|yesno:"A person decides,Evidence decides" }}</span>
-                    </div>
-
-                    <p class="text-muted-foreground mt-1 max-w-prose text-sm text-pretty">{{ row.spec.description }}</p>
-
-                    {% if row.gate.note %}
-                        <p class="bg-muted mt-2 rounded-md px-3 py-2 text-sm">{{ row.gate.note }}</p>
-                    {% endif %}
-
-                    {% if row.gate.decided_at %}
-                        <p class="text-muted-foreground mt-1.5 text-xs">
-                            {{ row.gate.decided_by.get_full_name|default:row.gate.decided_by.email|default:"Someone" }}
-                            · {{ row.gate.decided_at|timesince }} ago
-                        </p>
-                    {% endif %}
-
-                    {% if row.current %}
-                        {% if row.gate.result == "rejected" %}
-                            <form method="post" action="{% url 'gate_decide' reel.pk row.gate.step %}" class="mt-3">
-                                {% csrf_token %}
-                                <c-btn type="submit" name="action" value="reopen" variant="outline" size="sm">Put back in play</c-btn>
-                            </form>
-                        {% else %}
-                            <form method="post" action="{% url 'gate_decide' reel.pk row.gate.step %}"
-                                  class="mt-3 flex flex-wrap items-center gap-2">
-                                {% csrf_token %}
-                                <div class="field w-56">
-                                    <label class="sr-only" for="note-{{ row.gate.step }}">Note</label>
-                                    <input type="text" id="note-{{ row.gate.step }}" name="note" maxlength="200"
-                                           placeholder="{% if row.human %}What you saw{% else %}Evidence{% endif %}">
-                                </div>
-                                <c-btn type="submit" name="action" value="approve" size="sm">
-                                    {% if row.human %}Approve{% else %}Mark passed{% endif %}
-                                </c-btn>
-                                {% if row.human %}
-                                    <c-btn type="submit" name="action" value="reject" variant="outline" size="sm">Send back</c-btn>
-                                {% endif %}
-                            </form>
-                        {% endif %}
-                    {% endif %}
+    <div class="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_15rem]">
+        <div class="min-w-0 space-y-4">
+            <div class="space-y-2">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="font-medium">{{ reel.passed }} of 6 steps done</span>
+                    <span class="text-muted-foreground tabular-nums">{{ reel.percent }}%</span>
                 </div>
-            </li>
-        {% endfor %}
-    </ol>
+                <c-progress :percent="reel.percent" />
+            </div>
+
+            <ol class="divide-border divide-y rounded-lg border">
+                {% for row in route %}
+                    {% with gate=row.gate out=row.gate.output %}
+                    <li class="flex gap-3 px-4 py-4 sm:gap-4{% if row.current %} bg-muted/40{% endif %}"{% if row.current %} aria-current="step"{% endif %}>
+                        <span class="grid size-7 shrink-0 place-items-center rounded-full border text-xs tabular-nums
+                            {% if row.state == 'passed' %}border-primary bg-primary text-primary-foreground
+                            {% elif row.state == 'rejected' or row.state == 'failed' %}border-destructive text-destructive
+                            {% elif row.current or row.state == 'running' %}border-primary text-primary
+                            {% else %}text-muted-foreground{% endif %}">{{ row.spec.index }}</span>
+
+                        <div class="min-w-0 flex-1 space-y-3">
+                            <div>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h3 class="text-sm font-semibold">{{ row.name }}</h3>
+                                    <c-badge :variant="row.variant">{{ row.label }}</c-badge>
+                                    <span class="text-muted-foreground text-xs">{{ row.human|yesno:"You decide,Passes on its checks" }}</span>
+                                </div>
+                                {% if not out and row.state != "passed" %}
+                                    <p class="text-muted-foreground mt-1 max-w-prose text-sm text-pretty">{{ row.spec.description }}</p>
+                                {% endif %}
+                            </div>
+
+                            {% if out %}
+                                <details class="group/out"{% if row.state != "passed" %} open{% endif %}>
+                                <summary class="text-muted-foreground hover:text-foreground cursor-pointer text-xs font-medium{% if row.state != "passed" %} hidden{% endif %}">
+                                    <span class="group-open/out:hidden">Show what it made</span><span class="hidden group-open/out:inline">Hide</span>
+                                </summary>
+                                <div class="{% if row.state == "passed" %}mt-3 {% endif %}space-y-3">
+                                {% if gate.step == "idea" %}
+                                    <div class="space-y-1 text-sm">
+                                        <p class="font-medium text-pretty">{{ out.concept.sentence }}</p>
+                                        <p class="text-muted-foreground text-pretty">{{ out.concept.insight }}</p>
+                                    </div>
+                                    {% if out.note %}
+                                        <p class="bg-muted rounded-md px-3 py-2 text-sm text-pretty"><span class="text-muted-foreground">Your note:</span> {{ out.note }}</p>
+                                    {% endif %}
+                                {% elif gate.step == "hook" %}
+                                    {% for hook in out.hooks %}{% if hook.chosen %}
+                                        <div class="space-y-1 text-sm">
+                                            <p class="text-pretty">“{{ hook.spoken }}”</p>
+                                            <p class="text-muted-foreground">On screen: <span class="text-foreground font-medium">{{ hook.overlay }}</span></p>
+                                        </div>
+                                    {% endif %}{% endfor %}
+                                    <details class="text-sm">
+                                        <summary class="text-muted-foreground hover:text-foreground cursor-pointer text-xs font-medium">{{ out.hooks|length|add:"-1" }} alternates considered</summary>
+                                        <ul class="mt-2 space-y-1.5">
+                                            {% for hook in out.hooks %}{% if not hook.chosen %}
+                                                <li class="text-pretty"><span class="text-muted-foreground text-xs">{{ hook.archetype }}</span> “{{ hook.spoken }}”</li>
+                                            {% endif %}{% endfor %}
+                                        </ul>
+                                    </details>
+                                {% elif gate.step == "board" %}
+                                    <ol class="space-y-3 text-sm">
+                                        {% for scene in out.scenes %}
+                                            <li class="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] gap-x-2">
+                                                <span class="text-muted-foreground text-xs leading-5 tabular-nums">{{ forloop.counter }}</span>
+                                                <div class="min-w-0">
+                                                    <p class="font-medium text-balance">{{ scene.overlay }}</p>
+                                                    <p class="text-muted-foreground mt-0.5 text-pretty">{{ scene.narration }}</p>
+                                                    <p class="text-muted-foreground mt-1 text-xs">Shows: {{ scene.visual_beat }}</p>
+                                                </div>
+                                                <span class="text-muted-foreground text-xs leading-5 tabular-nums">{{ scene.seconds_est|floatformat:0 }}s</span>
+                                            </li>
+                                        {% endfor %}
+                                    </ol>
+                                    {% if out.seconds %}<p class="text-muted-foreground text-xs tabular-nums">About {{ out.seconds|floatformat:0 }} seconds, {{ out.words }} words.</p>{% endif %}
+                                {% elif gate.step == "look" %}
+                                    <ul class="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                                        {% for visual in out.visuals %}
+                                            <li><img src="{% url 'reel_media' reel.pk visual.key %}" alt="Scene {{ visual.index }} visual" loading="lazy"
+                                                     class="bg-muted aspect-9/16 w-full rounded-md border object-cover"></li>
+                                        {% endfor %}
+                                    </ul>
+                                {% elif gate.step == "voice" %}
+                                    <audio controls preload="none" class="w-full max-w-md" src="{% url 'reel_media' reel.pk 'assets/voice.wav' %}">
+                                        <a href="{% url 'reel_media' reel.pk 'assets/voice.wav' %}">Download the voice</a>
+                                    </audio>
+                                    <dl class="text-muted-foreground flex flex-wrap gap-x-5 gap-y-1 text-xs tabular-nums">
+                                        <div><dt class="inline">Length</dt> <dd class="text-foreground inline">{{ out.duration|floatformat:1 }} s</dd></div>
+                                        <div><dt class="inline">Loudness</dt> <dd class="text-foreground inline">{{ out.loudness|floatformat:1 }} LUFS</dd></div>
+                                        <div><dt class="inline">Longest pause</dt> <dd class="text-foreground inline">{{ out.max_silence|floatformat:2 }} s</dd></div>
+                                    </dl>
+                                {% elif gate.step == "print" %}
+                                    <video controls playsinline preload="metadata"
+                                           class="aspect-9/16 max-h-[70svh] w-full max-w-xs rounded-xl bg-black"
+                                           src="{% url 'reel_media' reel.pk 'out.mp4' %}"></video>
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <c-btn href="{% url 'reel_media' reel.pk 'out.mp4' %}" variant="outline" size="sm" download="{{ reel.slug }}.mp4" hx-boost="false">Download mp4</c-btn>
+                                        <span class="text-muted-foreground text-xs tabular-nums">{{ out.duration|floatformat:1 }} s · {{ out.loudness|floatformat:1 }} LUFS · {{ out.cues }} captions</span>
+                                    </div>
+                                {% endif %}
+                                </div>
+                                </details>
+                            {% endif %}
+
+                            {% if gate.note and gate.step != "idea" %}
+                                <p class="bg-muted rounded-md px-3 py-2 text-sm text-pretty">
+                                    <span class="text-muted-foreground">{% if gate.result == "rejected" %}Sent back:{% else %}Note:{% endif %}</span> {{ gate.note }}
+                                </p>
+                            {% endif %}
+                            {% if gate.decided_at and gate.decided_by %}
+                                <p class="text-muted-foreground text-xs">
+                                    {{ gate.decided_by.get_full_name|default:gate.decided_by.email }} · {{ gate.decided_at|timesince }} ago
+                                </p>
+                            {% endif %}
+
+                            {% if row.state == "running" %}
+                                <div class="space-y-2" aria-hidden="true">
+                                    <div class="bg-muted h-3 w-2/3 animate-pulse rounded motion-reduce:animate-none"></div>
+                                    <div class="bg-muted h-3 w-1/2 animate-pulse rounded motion-reduce:animate-none"></div>
+                                </div>
+                            {% elif row.state == "failed" %}
+                                <c-alert variant="destructive">
+                                    <c-icon.triangle-alert />
+                                    <h4>{{ row.name }} stopped</h4>
+                                    <section class="space-y-3">
+                                        <p class="text-pretty">{{ gate.error }}</p>
+                                        <c-form action="{% url 'step_retry' reel.pk gate.step %}">
+                                            <c-btn type="submit" variant="outline" size="sm">Try again</c-btn>
+                                        </c-form>
+                                    </section>
+                                </c-alert>
+                            {% elif gate.awaiting_person %}
+                                <c-form action="{% url 'gate_decide' reel.pk gate.step %}" class="flex flex-col gap-2 sm:flex-row sm:items-end">
+                                    {% if gate.step != "idea" %}
+                                        <div class="field min-w-0 flex-1 gap-1.5">
+                                            <label for="note-{{ gate.step }}">Note</label>
+                                            <input type="text" id="note-{{ gate.step }}" name="note" maxlength="500" autocomplete="off"
+                                                   placeholder="Needed to send back: what should change">
+                                        </div>
+                                    {% endif %}
+                                    <div class="flex gap-2">
+                                        {% if gate.step != "idea" %}
+                                            <c-btn type="submit" name="action" value="reject" variant="outline" class="flex-1 sm:flex-none">Send back</c-btn>
+                                        {% endif %}
+                                        <c-btn type="submit" name="action" value="approve" class="flex-1 sm:flex-none">
+                                            {% if gate.step == "print" %}Approve the cut{% elif gate.step == "board" %}Approve the board{% else %}Approve{% endif %}
+                                        </c-btn>
+                                    </div>
+                                </c-form>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endwith %}
+                {% endfor %}
+            </ol>
+        </div>
+
+        {% with concept=spark.gate.output.concept %}
+            {% if concept %}
+                <aside class="hidden lg:sticky lg:top-6 lg:block" aria-label="Opening frame">
+                    <c-reel-frame :design="design" overlay="{{ concept.hook.overlay }}" spoken="{{ concept.hook.spoken }}"
+                                  kicker="{{ kicker }}" :count="scene_count" guides="1" />
+                    <p class="text-muted-foreground mt-2 text-xs text-pretty">Opening frame as picked. Dashed areas are covered by Instagram.</p>
+                </aside>
+            {% endif %}
+        {% endwith %}
+    </div>
 
     <section class="flex flex-wrap items-start justify-between gap-4 border-t pt-6">
         <div>
             <h3 class="text-sm font-semibold">Delete this reel</h3>
-            <p class="text-muted-foreground mt-1 text-sm">The six gate decisions go with it. This cannot be undone.</p>
+            <p class="text-muted-foreground mt-1 text-sm">Its steps, decisions and files go with it. This cannot be undone.</p>
         </div>
         <c-btn type="button" variant="destructive" size="sm"
                onclick="document.getElementById('delete-reel').showModal()">Delete reel</c-btn>
     </section>
 
     <c-dialog id="delete-reel" title="Delete {{ reel.title }}?"
-              description="Six gate decisions and every artifact reference go with it.">
+              description="Six steps, their decisions and every file reference go with it.">
         <c-slot name="actions">
             <c-btn type="button" variant="outline" onclick="this.closest('dialog').close()">Cancel</c-btn>
             <c-form action="{% url 'reel_delete' reel.pk %}" class="contents">

@@ -187,3 +187,11 @@ def test_short_script_fails_the_target(spec):
     ]
     problems = validate_beats(rows, short)
     assert any("words is short" in problem for problem in problems)
+
+
+def test_idea_accepts_plural_or_need_in_the_insight():
+    for insight in (
+        "New runners want a plan, but advice conflicts, because every coach sells one.",
+        "She needs a plan, but advice conflicts, because every coach sells one.",
+    ):
+        assert not [p for p in validate_idea(idea(insight=insight)) if "wants" in p]

@@ -44,6 +44,9 @@ services:
       dockerfile: dev/Dockerfile
     container_name: ${APP_SLUG:-leynor}-app
     restart: unless-stopped
+    # A model server on the host (Ollama, LM Studio) is http://host.docker.internal:<port>.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy
@@ -74,6 +77,9 @@ services:
       dockerfile: dev/Dockerfile.heavy
     container_name: ${APP_SLUG:-leynor}-heavy
     restart: unless-stopped
+    # A model server on the host (Ollama, LM Studio) is http://host.docker.internal:<port>.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy

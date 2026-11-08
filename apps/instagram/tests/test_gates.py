@@ -14,8 +14,12 @@ def test_route_order_is_definition_order():
     ]
 
 
-def test_board_and_print_need_a_person():
-    assert {step for step in Step if needs_human(step)} == {Step.BOARD, Step.PRINT}
+def test_spark_board_and_print_need_a_person():
+    assert {step for step in Step if needs_human(step)} == {
+        Step.IDEA,
+        Step.BOARD,
+        Step.PRINT,
+    }
 
 
 def test_next_step_walks_the_route_and_stops_at_the_end():

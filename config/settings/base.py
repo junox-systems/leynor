@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.linkedin",
     "apps.runs",
     "apps.text",
+    "apps.ai",
     "apps.image",
     "apps.video",
     "apps.api",
@@ -252,7 +253,9 @@ MEDIA_ROOT = BASE_DIR / "media"
 APP_ARTIFACT_ROOT = Path(
     env("APP_ARTIFACT_ROOT", default=str(BASE_DIR / "var" / "artifacts"))
 )
-APP_LLM_MODEL = env("APP_LLM_MODEL", default="")
+# Fernet key that encrypts provider API keys at rest (apps.ai). Development
+# derives one from SECRET_KEY when unset; production must set it.
+APP_SECRETS_KEY = env("APP_SECRETS_KEY", default="")
 APP_WHISPER_SIZE = env("APP_WHISPER_SIZE", default="base.en")
 APP_RENDER_QUALITY = env("APP_RENDER_QUALITY", default="delivery")
 APP_MIN_FREE_GB = env.int("APP_MIN_FREE_GB", default=10)

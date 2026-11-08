@@ -129,7 +129,7 @@ class DetailTests(CampaignViewTestCase):
         body = self.client.get(self.detail).content.decode()
         assert "Launch" in body
         assert "Flying Eyes" in body
-        assert "On Spark" in body
+        assert "Spark: your call" in body
 
     def test_a_campaign_without_units_teaches_the_reel_route(self):
         body = self.client.get(self.detail).content.decode()

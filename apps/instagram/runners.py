@@ -7,13 +7,14 @@ from importlib import import_module
 
 from apps.instagram.gates import Step
 
+# Spark is drafted on the pitch, before a reel exists; the rest take (reel, note).
 RUNNERS: dict[Step, tuple[str, str]] = {
-    Step.IDEA: ("apps.instagram.services", "draft_step"),
-    Step.HOOK: ("apps.instagram.services", "draft_step"),
-    Step.BOARD: ("apps.instagram.services", "draft_step"),
-    Step.LOOK: ("apps.image.services", "generate"),
-    Step.VOICE: ("apps.video.audio.services", "run_voice"),
-    Step.PRINT: ("apps.video.services", "run_print"),
+    Step.IDEA: ("apps.instagram.services", "pitch_concepts"),
+    Step.HOOK: ("apps.instagram.services", "hooks_step"),
+    Step.BOARD: ("apps.instagram.services", "board_step"),
+    Step.LOOK: ("apps.instagram.services", "look_step"),
+    Step.VOICE: ("apps.instagram.services", "voice_step"),
+    Step.PRINT: ("apps.instagram.services", "print_step"),
 }
 
 

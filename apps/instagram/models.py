@@ -7,12 +7,16 @@ one still open. Nothing stores the reel's position.
 
 from pydantic import ValidationError as PydanticValidationError
 
+from pathlib import Path
+
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
+from django.utils import timezone
 from django.utils.text import slugify
 
-from apps.campaigns.models import PublicationBase, Unit
+from apps.campaigns.models import Goal, PublicationBase, Unit
 from apps.campaigns.routes import (
     DECIDED,
     GateOutOfOrder,
@@ -22,6 +26,7 @@ from apps.campaigns.routes import (
 from apps.core.models import BaseModel
 from apps.instagram.gates import Step, gate_kind
 from apps.instagram.steps import resolve
+from apps.runs.artifacts import FileStore
 from apps.video.spec import ReelSpec
 
 __all__ = [
@@ -30,7 +35,17 @@ __all__ = [
     "InstagramPublication",
     "Reel",
     "ReelGate",
+    "ReelPitch",
+    "RunStatus",
 ]
+
+
+class RunStatus(models.TextChoices):
+    """Where the engine is on one step, beside the gate's decision."""
+
+    IDLE = "idle", "Idle"
+    RUNNING = "running", "Running"
+    FAILED = "failed", "Failed"
 
 
 def _position(step: str) -> int:
@@ -128,11 +143,24 @@ class Reel(Unit):
 
     @property
     def needs_person(self) -> bool:
-        """True when the open gate is a human one, or one already sent back."""
+        """True when the open gate waits on a decision or a retry."""
         gate = self.current_gate
         if gate is None:
             return False
-        return gate.kind == "human" or gate.result == GateResult.REJECTED
+        return gate.awaiting_person or gate.status == RunStatus.FAILED
+
+    def store(self) -> FileStore:
+        """This reel's artifacts, laid out like `runs.artifact_key` without a run."""
+        campaign = self.campaign
+        return FileStore(
+            Path(
+                settings.APP_ARTIFACT_ROOT,
+                str(campaign.project.organization_id),
+                str(campaign.project_id),
+                str(campaign.pk),
+                str(self.pk),
+            )
+        )
 
     def route(self):
         """Every step in order, with the state a template renders.
@@ -145,13 +173,17 @@ class Reel(Unit):
             human = gate.kind == "human"
             if gate.result in DECIDED:
                 state, label, variant = "passed", "Passed", "secondary"
+            elif gate.status == RunStatus.RUNNING:
+                state, label, variant = "running", "Running", "outline"
+            elif gate.status == RunStatus.FAILED:
+                state, label, variant = "failed", "Stopped", "destructive"
             elif gate.result == GateResult.REJECTED:
                 state, label, variant = "rejected", "Sent back", "destructive"
             elif current is not None and gate.pk == current.pk:
-                state = "current"
-                label, variant = (
-                    ("Your call", "primary") if human else ("Ready", "outline")
-                )
+                if gate.awaiting_person:
+                    state, label, variant = "current", "Your call", "primary"
+                else:
+                    state, label, variant = "queued", "Queued", "outline"
             else:
                 state, label, variant = "waiting", "Waiting", "outline"
             rows.append(
@@ -174,9 +206,13 @@ class Reel(Unit):
             return "Complete"
         gate = self.current_gate
         name = gate.get_step_display()
-        return (
-            f"{name} sent back" if gate.result == GateResult.REJECTED else f"On {name}"
-        )
+        if gate.status == RunStatus.RUNNING:
+            return f"Running {name}"
+        if gate.status == RunStatus.FAILED:
+            return f"{name} stopped"
+        if gate.result == GateResult.REJECTED:
+            return f"{name} sent back"
+        return f"{name}: your call" if gate.awaiting_person else f"On {name}"
 
 
 class ReelGate(RouteGate):
@@ -184,6 +220,14 @@ class ReelGate(RouteGate):
 
     reel = models.ForeignKey(Reel, on_delete=models.CASCADE, related_name="gates")
     step = models.CharField(max_length=16, choices=Step.choices)
+    # What the engine produced for this step. shortcut: latest attempt only; add
+    # a StepRun history table when someone needs to compare attempts.
+    output = models.JSONField(default=dict, blank=True)
+    status = models.CharField(
+        max_length=8, choices=RunStatus.choices, default=RunStatus.IDLE
+    )
+    error = models.TextField(blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
 
     class Meta(RouteGate.Meta):
         constraints = [
@@ -193,6 +237,172 @@ class ReelGate(RouteGate):
     @property
     def unit(self):
         return self.reel
+
+    @property
+    def awaiting_person(self) -> bool:
+        """A human gate with something to judge. Spark is judged on the pitch."""
+        return (
+            self.kind == "human"
+            and self.result == GateResult.PENDING
+            and self.status == RunStatus.IDLE
+            and (bool(self.output) or self.step == Step.IDEA)
+        )
+
+    def claim(self) -> bool:
+        """Mark this gate running, unless another worker already holds it."""
+        now = timezone.now()
+        claimed = (
+            ReelGate.objects.filter(pk=self.pk)
+            .exclude(status=RunStatus.RUNNING)
+            .update(status=RunStatus.RUNNING, error="", started_at=now, updated_at=now)
+        )
+        if claimed:
+            self.status, self.error, self.started_at = RunStatus.RUNNING, "", now
+        return bool(claimed)
+
+    def finish(self, output: dict):
+        """Keep what the step made. A re-run after a send-back is judged again."""
+        self.output = output
+        self.status = RunStatus.IDLE
+        fields = ["output", "status", "updated_at"]
+        if self.result == GateResult.REJECTED:
+            self.result = GateResult.PENDING
+            self.decided_by = None
+            self.decided_at = None
+            fields += ["result", "decided_by", "decided_at"]
+        self.save(update_fields=fields)
+
+    def fail(self, error: str):
+        self.status = RunStatus.FAILED
+        self.error = error[:2000]
+        self.save(update_fields=["status", "error", "updated_at"])
+
+    def retry(self):
+        """Put a stopped step back in the queue."""
+        if self.status != RunStatus.FAILED:
+            raise ValidationError("Only a stopped step can be tried again.")
+        self.status = RunStatus.IDLE
+        self.error = ""
+        self.save(update_fields=["status", "error", "updated_at"])
+
+
+class PitchError(ValueError):
+    """A pitch could not be picked as asked."""
+
+
+class ReelPitch(BaseModel):
+    """One idea and the rounds of three concepts drafted from it.
+
+    No reel exists until a person picks a concept, so `Reel.create` keeps its
+    invariants: a title, a derived slug, six gates.
+    """
+
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        RUNNING = "running", "Writing"
+        READY = "ready", "Ready"
+        FAILED = "failed", "Stopped"
+
+    campaign = models.ForeignKey(
+        "campaigns.Campaign", on_delete=models.CASCADE, related_name="reel_pitches"
+    )
+    idea = models.TextField(help_text="What the reel is about, in your words.")
+    goal = models.CharField(
+        max_length=8,
+        choices=Goal.choices,
+        help_text="The one outcome the reel chases.",
+    )
+    target_seconds = models.PositiveSmallIntegerField(
+        default=60,
+        validators=[MinValueValidator(60), MaxValueValidator(180)],
+        help_text="60 to 180 seconds.",
+    )
+    # [{"feedback": str, "concepts": [concept dict, ...]}], oldest first.
+    rounds = models.JSONField(default=list, blank=True)
+    # The note that asked for the round being written now.
+    feedback = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=8, choices=Status.choices, default=Status.QUEUED
+    )
+    error = models.TextField(blank=True)
+    reel = models.OneToOneField(
+        Reel, null=True, blank=True, on_delete=models.SET_NULL, related_name="pitch"
+    )
+
+    class Meta(BaseModel.Meta):
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.idea[:60]
+
+    @property
+    def organization(self):
+        return self.campaign.organization
+
+    @property
+    def working(self) -> bool:
+        return self.status in (self.Status.QUEUED, self.Status.RUNNING)
+
+    @property
+    def latest(self) -> dict | None:
+        return self.rounds[-1] if self.rounds else None
+
+    def start(self, feedback: str = ""):
+        """Queue a new round. The note steers it; earlier rounds stay."""
+        if self.reel_id:
+            raise PitchError("This idea already became a reel.")
+        self.feedback = feedback.strip()
+        self.status = self.Status.QUEUED
+        self.error = ""
+        self.save(update_fields=["feedback", "status", "error", "updated_at"])
+
+    def add_round(self, concepts: list[dict]):
+        self.rounds = [*self.rounds, {"feedback": self.feedback, "concepts": concepts}]
+        self.status = self.Status.READY
+        self.feedback = ""
+        self.save(update_fields=["rounds", "status", "feedback", "updated_at"])
+
+    def fail(self, error: str):
+        self.status = self.Status.FAILED
+        self.error = error[:2000]
+        self.save(update_fields=["status", "error", "updated_at"])
+
+    def pick(self, *, round_index: int, concept_index: int, user, note: str = ""):
+        """Turn one concept into a reel with Spark decided. Returns (reel, created)."""
+        with transaction.atomic():
+            pitch = ReelPitch.objects.select_for_update().get(pk=self.pk)
+            if pitch.reel_id:
+                return pitch.reel, False
+            try:
+                concepts = pitch.rounds[round_index]["concepts"]
+                concept = concepts[concept_index]
+            except (IndexError, KeyError, TypeError):
+                raise PitchError("That concept is not on this pitch.") from None
+            reel = Reel.create(
+                campaign=pitch.campaign,
+                title=concept["title"][:120],
+                prompt=pitch.idea,
+                goal=pitch.goal,
+                target_seconds=pitch.target_seconds,
+            )
+            spark = reel.gates.get(step=Step.IDEA)
+            spark.output = {
+                "concept": concept,
+                "alternatives": [
+                    {"title": other["title"], "rejected": "Not picked"}
+                    for index, other in enumerate(concepts)
+                    if index != concept_index
+                ],
+                "note": note.strip(),
+            }
+            spark.save(update_fields=["output", "updated_at"])
+            spark.decide(
+                GateResult.APPROVED, user, note or f"Picked “{reel.title}”."
+            )
+            pitch.reel = reel
+            pitch.save(update_fields=["reel", "updated_at"])
+        self.reel = reel
+        return reel, True
 
 
 class InstagramPublication(PublicationBase):

@@ -47,6 +47,14 @@ _Avoid_: Objective, KPI, target
 What a campaign must achieve, in the operator's words. Written as prose, and never the same field as a unit's goal.
 _Avoid_: Aim, objective
 
+**Idea**:
+What a person types to start a reel: a sentence or a paragraph, with a goal and a length.
+_Avoid_: Brief (that is the campaign), prompt
+
+**Take**:
+One of three concepts drafted from an idea: a title, an insight, a hook and a beat outline. A pick turns one take into a reel and decides Spark.
+_Avoid_: Option, variant, draft
+
 **Reel**:
 Instagram's output unit: a 9:16 video, 60 to 180 seconds, with a six-step route.
 _Avoid_: Video, clip, short

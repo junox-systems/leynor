@@ -1,10 +1,14 @@
+import tempfile
+from unittest import mock
+
 from django.contrib.messages import get_messages
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.campaigns.models import Campaign
 from apps.instagram.gates import GateResult, Step
-from apps.instagram.models import Reel
+from apps.instagram.models import Reel, ReelPitch, RunStatus
+from apps.instagram.tests import fakes
 from apps.orgs.models import OWNER, Membership, Organization, Role
 from apps.projects.models import Project
 from apps.users.models import User
@@ -69,112 +73,197 @@ class AccessTests(ReelViewTestCase):
         assert self.client.get(self.detail).status_code == 404
 
 
-class CreateTests(ReelViewTestCase):
-    def test_the_slug_comes_from_the_title_without_being_typed(self):
-        response = self.client.post(
-            reverse("reel_new", args=[self.campaign.pk]),
-            {
-                "title": "A Second Reel",
-                "prompt": "Say why the single was cut to 90 seconds.",
-                "goal": "",
-                "target_seconds": 90,
-            },
-        )
-        reel = Reel.objects.get(title="A Second Reel")
-        assert response.status_code == 302
-        assert response["Location"] == reverse("reel_detail", args=[reel.pk])
-        assert reel.slug == "a-second-reel"
-        assert reel.gates.count() == 6
+@override_settings(APP_ARTIFACT_ROOT=tempfile.mkdtemp(prefix="leynor-test-"))
+class IdeaToReelTests(ReelViewTestCase):
+    def submit_idea(self, **data):
+        payload = {"idea": "Why habits die on day three", "goal": "saves", "target_seconds": 60}
+        payload.update(data)
+        with fakes.FakeText().patch():
+            return self.client.post(reverse("reel_new", args=[self.campaign.pk]), payload)
 
-    def test_the_prompt_and_goal_are_stored_on_the_reel(self):
-        self.client.post(
-            reverse("reel_new", args=[self.campaign.pk]),
-            {
-                "title": "Brief",
-                "prompt": "Say why the single was cut to 90 seconds.",
-                "goal": "follows",
-                "target_seconds": 90,
-            },
-        )
-        reel = Reel.objects.get(title="Brief")
-        assert reel.prompt.startswith("Say why")
-        assert reel.goal == "follows"
+    def test_the_idea_form_asks_for_an_idea_a_goal_and_a_length(self):
+        body = self.client.get(reverse("reel_new", args=[self.campaign.pk])).content.decode()
+        assert "Start from an idea" in body
+        assert 'name="goal"' in body and 'value="follows"' in body
+        assert 'name="target_seconds"' in body
+        assert "This campaign has no audience" in body
 
-    def test_two_reels_with_the_same_title_get_numbered_slugs(self):
-        payload = {"prompt": "", "goal": "", "target_seconds": 60}
-        for _ in range(2):
-            self.client.post(
-                reverse("reel_new", args=[self.campaign.pk]),
-                {"title": "Second Cut", **payload},
-            )
-        slugs = set(
-            Reel.objects.filter(title="Second Cut").values_list("slug", flat=True)
-        )
-        assert slugs == {"second-cut", "second-cut-2"}
+    def test_an_idea_becomes_a_pitch_with_three_takes(self):
+        response = self.submit_idea()
+        pitch = ReelPitch.objects.get()
+        assert response["Location"] == reverse("reel_pitch", args=[pitch.pk])
+        body = self.client.get(response["Location"]).content.decode()
+        assert "Pick the take to build" in body
+        assert body.count('name="concept"') == 3
+        assert "Take 1 of 3" in body
+        assert "Motivation is a trap" in body
+        assert "Instagram caption" in body  # the safe-zone guide
 
-    def test_a_reel_outside_the_duration_window_is_refused(self):
+    def test_a_length_outside_the_choices_is_refused(self):
         for seconds in (30, 240):
-            response = self.client.post(
-                reverse("reel_new", args=[self.campaign.pk]),
-                {"title": "Off", "prompt": "", "goal": "", "target_seconds": seconds},
-            )
+            response = self.submit_idea(target_seconds=seconds)
             assert response.status_code == 200
-            assert not Reel.objects.filter(title="Off").exists()
+        assert not ReelPitch.objects.exists()
+
+    def test_picking_a_take_makes_the_reel_and_runs_to_the_board(self):
+        self.submit_idea()
+        pitch = ReelPitch.objects.get()
+        with fakes.FakeText().patch():
+            response = self.client.post(
+                reverse("reel_pitch_decide", args=[pitch.pk]),
+                {"action": "pick", "concept": "0:2", "note": "keep it warm"},
+            )
+        reel = Reel.objects.get(title="Take number 3")
+        assert response["Location"] == reverse("reel_detail", args=[reel.pk])
+        assert reel.slug == "take-number-3"
+        assert reel.prompt == "Why habits die on day three"
+        spark = reel.gates.get(step=Step.IDEA)
+        assert spark.result == GateResult.APPROVED
+        assert spark.output["note"] == "keep it warm"
+        body = self.client.get(response["Location"]).content.decode()
+        assert "Approve the board" in body
+        assert "Your note:" in body
+
+    def test_picking_twice_makes_one_reel(self):
+        self.submit_idea()
+        pitch = ReelPitch.objects.get()
+        url = reverse("reel_pitch_decide", args=[pitch.pk])
+        with fakes.FakeText().patch():
+            for _ in range(2):
+                self.client.post(url, {"action": "pick", "concept": "0:0"})
+        assert Reel.objects.filter(title="Take number 1").count() == 1
+        pitch.refresh_from_db()
+        response = self.client.get(reverse("reel_pitch", args=[pitch.pk]))
+        assert response["Location"] == reverse("reel_detail", args=[pitch.reel_id])
+
+    def test_picking_nothing_is_refused_with_a_message(self):
+        self.submit_idea()
+        pitch = ReelPitch.objects.get()
+        response = self.client.post(
+            reverse("reel_pitch_decide", args=[pitch.pk]), {"action": "pick"}, follow=True
+        )
+        assert messages_of(response) == ["Choose one of the takes first."]
+
+    def test_three_new_takes_keep_the_earlier_round(self):
+        self.submit_idea()
+        pitch = ReelPitch.objects.get()
+        with fakes.FakeText().patch():
+            self.client.post(
+                reverse("reel_pitch_decide", args=[pitch.pk]),
+                {"action": "again", "note": "funnier"},
+            )
+        pitch.refresh_from_db()
+        assert len(pitch.rounds) == 2
+        body = self.client.get(reverse("reel_pitch", args=[pitch.pk])).content.decode()
+        assert "Earlier takes (1 round)" in body
+        assert "after your note: “funnier”" in body
+        assert body.count('name="concept"') == 6
+
+    def test_another_organizations_pitch_is_a_404(self):
+        self.submit_idea()
+        pitch = ReelPitch.objects.get()
+        self.client.force_login(make_user("otto"))
+        make_org(User.objects.get(username="otto"), name="Other")
+        assert self.client.get(reverse("reel_pitch", args=[pitch.pk])).status_code == 404
 
 
 class GateTests(ReelViewTestCase):
-    def test_approving_the_current_gate_advances_the_route(self):
-        response = self.client.post(
-            self.gate_url(Step.IDEA),
-            {"action": "approve", "note": "cited input"},
-            follow=True,
-        )
-        gate = self.reel.gates.get(step=Step.IDEA)
-        assert gate.result == GateResult.AUTO
-        assert gate.decided_by == self.user
-        assert gate.note == "cited input"
-        assert self.reel.current_gate.step == Step.HOOK.value
-        assert messages_of(response) == ["Spark passed."]
-
-    def test_a_human_gate_is_recorded_as_approved_not_auto(self):
-        board = self.reel.gates.get(step=Step.BOARD)
+    def run_to_board(self):
         for step in (Step.IDEA, Step.HOOK):
-            self.reel.gates.get(step=step).decide(GateResult.AUTO, self.user)
-        self.client.post(self.gate_url(Step.BOARD), {"action": "approve"})
-        assert board.__class__.objects.get(pk=board.pk).result == GateResult.APPROVED
-
-    def test_a_gate_ahead_of_the_route_is_refused_with_a_message(self):
-        response = self.client.post(
-            self.gate_url(Step.HOOK), {"action": "approve"}, follow=True
-        )
-        assert self.reel.gates.get(step=Step.HOOK).result == GateResult.PENDING
-        assert "not the step in play" in messages_of(response)[0]
-
-    def test_an_auto_gate_cannot_be_sent_back(self):
-        response = self.client.post(
-            self.gate_url(Step.IDEA), {"action": "reject"}, follow=True
-        )
-        assert self.reel.gates.get(step=Step.IDEA).result == GateResult.PENDING
-        assert "only a person can send a step back" in messages_of(response)[0]
-
-    def test_a_sent_back_gate_can_be_put_back_in_play(self):
-        self.reel.gates.get(step=Step.IDEA).decide(GateResult.AUTO, self.user)
-        self.reel.gates.get(step=Step.HOOK).decide(GateResult.AUTO, self.user)
+            self.reel.gates.get(step=step).decide(GateResult.APPROVED, self.user)
         board = self.reel.gates.get(step=Step.BOARD)
-        board.decide(GateResult.REJECTED, self.user, "no beat in scene 2")
+        board.finish({"scenes": []})
+        return board
 
-        response = self.client.post(
-            self.gate_url(Step.BOARD), {"action": "reopen"}, follow=True
-        )
-        assert board.__class__.objects.get(pk=board.pk).result == GateResult.PENDING
-        assert "back in play" in messages_of(response)[0]
+    def test_a_board_waiting_for_a_person_can_be_approved(self):
+        board = self.run_to_board()
+        with mock.patch("apps.instagram.views.queue_advance") as queued:
+            response = self.client.post(self.gate_url(Step.BOARD), {"action": "approve"}, follow=True)
+        board.refresh_from_db()
+        assert board.result == GateResult.APPROVED
+        assert board.decided_by == self.user
+        assert messages_of(response) == ["Board approved."]
+        queued.assert_called_once()
 
-    def test_the_detail_page_offers_the_decision_for_the_current_gate_only(self):
+    def test_sending_back_needs_a_note(self):
+        board = self.run_to_board()
+        response = self.client.post(self.gate_url(Step.BOARD), {"action": "reject"}, follow=True)
+        board.refresh_from_db()
+        assert board.result == GateResult.PENDING
+        assert "Say what Board should change" in messages_of(response)[0]
+
+    def test_sending_back_with_a_note_queues_the_redo(self):
+        board = self.run_to_board()
+        with mock.patch("apps.instagram.views.queue_advance") as queued:
+            self.client.post(self.gate_url(Step.BOARD), {"action": "reject", "note": "less jargon"})
+        board.refresh_from_db()
+        assert board.result == GateResult.REJECTED
+        assert board.note == "less jargon"
+        queued.assert_called_once()
+
+    def test_a_step_that_passes_on_checks_cannot_be_clicked_through(self):
+        self.reel.gates.get(step=Step.IDEA).decide(GateResult.APPROVED, self.user)
+        response = self.client.post(self.gate_url(Step.HOOK), {"action": "approve"}, follow=True)
+        assert self.reel.gates.get(step=Step.HOOK).result == GateResult.PENDING
+        assert "passes on its checks" in messages_of(response)[0]
+
+    def test_a_board_with_nothing_to_judge_is_refused(self):
+        for step in (Step.IDEA, Step.HOOK):
+            self.reel.gates.get(step=step).decide(GateResult.APPROVED, self.user)
+        response = self.client.post(self.gate_url(Step.BOARD), {"action": "approve"}, follow=True)
+        assert "nothing to decide yet" in messages_of(response)[0]
+
+    def test_a_stopped_step_shows_its_reason_and_a_retry(self):
+        self.reel.gates.get(step=Step.IDEA).decide(GateResult.APPROVED, self.user)
+        hook = self.reel.gates.get(step=Step.HOOK)
+        hook.claim()
+        hook.fail("hook 2 overlay is over 44 characters")
         body = self.client.get(self.detail).content.decode()
-        assert "Spark" in body
-        assert "Approve" not in body  # Spark passes on evidence, not a person
-        assert "Mark passed" in body
-        assert body.count('name="action"') == 1
+        assert "Hook stopped" in body
+        assert "hook 2 overlay is over 44 characters" in body
+        with mock.patch("apps.instagram.views.queue_advance") as queued:
+            self.client.post(reverse("step_retry", args=[self.reel.pk, "hook"]))
+        hook.refresh_from_db()
+        assert hook.status == RunStatus.IDLE
+        queued.assert_called_once()
+
+    def test_a_legacy_reel_offers_spark_to_a_person(self):
+        body = self.client.get(self.detail).content.decode()
+        assert body.count('value="approve"') == 1
+        assert 'value="reject"' not in body
+
+
+@override_settings(APP_ARTIFACT_ROOT=tempfile.mkdtemp(prefix="leynor-test-"))
+class MediaTests(ReelViewTestCase):
+    def setUp(self):
+        super().setUp()
+        self.reel.store().put("out.mp4", b"0123456789")
+        self.url = reverse("reel_media", args=[self.reel.pk, "out.mp4"])
+
+    def test_a_file_is_served_with_a_locked_down_policy(self):
+        response = self.client.get(self.url)
+        assert response.status_code == 200
+        assert b"".join(response.streaming_content) == b"0123456789"
+        assert response["Content-Type"] == "video/mp4"
+        assert "default-src 'none'" in response["Content-Security-Policy"]
+
+    def test_a_byte_range_is_a_206(self):
+        response = self.client.get(self.url, headers={"Range": "bytes=2-5"})
+        assert response.status_code == 206
+        assert response.content == b"2345"
+        assert response["Content-Range"] == "bytes 2-5/10"
+        tail = self.client.get(self.url, headers={"Range": "bytes=-3"})
+        assert tail.content == b"789"
+        assert self.client.get(self.url, headers={"Range": "bytes=50-"}).status_code == 416
+
+    def test_paths_outside_the_reel_and_other_tenants_are_404(self):
+        escape = reverse("reel_media", args=[self.reel.pk, "../x"])
+        assert self.client.get(escape).status_code == 404
+        assert self.client.get(reverse("reel_media", args=[self.reel.pk, "nope.mp4"])).status_code == 404
+        outsider = make_user("otto")
+        make_org(outsider, name="Other")
+        self.client.force_login(outsider)
+        assert self.client.get(self.url).status_code == 404
 
 
 class DeleteTests(ReelViewTestCase):
@@ -199,7 +288,7 @@ class ListTests(ReelViewTestCase):
         assert "Flying Eyes" in body
         assert "Launch" in body
         assert "Works" in body
-        assert "On Spark" in body
+        assert "Spark: your call" in body
 
     def test_another_organizations_reel_stays_out(self):
         outsider = make_user("otto")

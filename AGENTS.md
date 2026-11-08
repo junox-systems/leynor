@@ -49,6 +49,7 @@ apps/           # ALL backend code. Never at project root
   image/        # image engine: procedural + waveform visuals
   video/        # video engine: ReelSpec, compose, encode, audio
   runs/         # artifact store
+  ai/           # AI providers, models, job assignments (admin-managed)
 config/
   settings/     # base / dev / production / test
   asgi.py       # ASGI + OTEL init
@@ -58,7 +59,7 @@ frontend/src/
   css/site.css    # Basecoat style pack — all component visuals
   js/main.js      # htmx config, Stimulus boot, controller auto-register
   js/controllers/ # Stimulus (auto-registered)
-  js/svelte/      # islands: app/ (Sidebar), dashboard/ (Activity only)
+  js/svelte/      # islands: app/ (Sidebar), dashboard/ (Activity), instagram/ (RouteStatus)
 templates/
   base.html       # public pages
   base_app.html   # authed app shell (htmx-boosted)
@@ -89,8 +90,10 @@ Four layers, one direction: **channel app → engine → store/core**.
 - `campaigns.models.Unit` and `campaigns.routes.RouteGate` are abstract bases. Each channel subclasses them with its own unit FK, step choices and unique constraint.
 - `Unit` carries `title`, `prompt`, and an outcome `goal` (`saves`/`shares`/`follows`); `Campaign.goal` is free prose, a different field with a different meaning (`docs/adr/0002-the-unit-owns-its-prompt-and-goal.md`). A `Reel` adds a derived `slug` (60-180s `target_seconds`); the slug is the render key and is never typed (`docs/adr/0003-slug-is-derived-not-typed.md`).
 - `Unit.organization` resolves through the campaign. RBAC reads that attribute (`rbac._organization_of`); without it every unit page is denied.
-- `text.services.draft(brief, instructions=...)` is schema-free. `image.services.generate(slug, scenes, store)` reads only labels. `video` accepts a `ReelSpec` and returns an mp4.
-- Engines never import a channel app or an ORM model. Channel apps never import each other. Campaigns never import a channel app or the brands app: reach audiences through `project.brand` (guarded by `tests/test_layering.py`).
+- `text.services.draft(brief, model=..., instructions=...)` is schema-free; `text.services.structured(brief, output_type=..., model=...)` returns the caller's pydantic type (the schema lives in the channel). Engines never pick a model: the channel asks `apps.ai.services.llm(purpose)` and passes it in. `image.services.generate(slug, scenes, store)` reads only labels. `video` accepts a `ReelSpec` and returns an mp4.
+- Engines never import a channel app or an ORM model. A channel may import the store (`runs`) for its artifacts. Channel apps never import each other. Campaigns never import a channel app or the brands app: reach audiences through `project.brand` (guarded by `tests/test_layering.py`).
+- Reel flow: idea → `ReelPitch` (rounds of three concepts, `tasks.pitch`) → a pick creates the `Reel` with Spark decided → `tasks.advance` runs one step per task, auto-passes steps whose checks hold, and stops at Board, Print or a failure. Voice and Print run on the heavy cluster (`<APP_SLUG>-heavy`); every enqueue names its cluster. Step output lives on `ReelGate.output`; artifacts in `Reel.store()`.
+- AI config (`apps/ai`, admin → AI): `Provider` (OpenAI-compatible URL or a pydantic-ai provider, encrypted `api_key` via `APP_SECRETS_KEY`) → `Model` (kind llm/image/video/embedding) → `Assignment` (purpose → model + optional fallback). Purposes live in `ai.registry.PURPOSES`; a purpose without its own assignment uses `default.<kind>`. A new job = one `PURPOSES` entry.
 - Publishing settings: `INSTAGRAM_ACCOUNT_ID`, `INSTAGRAM_ACCESS_TOKEN`, `PUBLIC_MEDIA_BASE_URL`. Empty means `PublishUnavailable`, never a fake success.
 
 ### Models
@@ -285,7 +288,7 @@ view.get_context_data() ──────────────────�
 5. Live refresh only: DMR controller calling same `*_payload`; URL via payload.
 6. Verify: `just test` → `cd frontend && pnpm run build` → load page, check console. `svelte-bridge: no component found` = wrong component path.
 
-**Prefer rung 1.** The dashboard is server-rendered (`templates/dashboard/index.html`): project lists, route dots and gate decisions are Cotton + Django forms, so they arrive finished and need no JS. Only Activity remains an island (`dashboard/Activity.svelte`), because it refreshes from DMR.
+**Prefer rung 1.** The dashboard is server-rendered (`templates/dashboard/index.html`): project lists, route dots and gate decisions are Cotton + Django forms, so they arrive finished and need no JS. Only Activity (`dashboard/Activity.svelte`) and the reel route status (`instagram/RouteStatus.svelte`) are islands, because both refresh from DMR.
 
 ### htmx (boosted nav)
 
