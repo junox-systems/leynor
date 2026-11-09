@@ -239,15 +239,13 @@ def reel_media(request, pk, name):
     """One artifact of this reel: a visual, the voice, or the render."""
     reel = _reel(request, pk)
     store = reel.store()
-    try:
-        if not store.exists(name):
-            raise Http404("No such file.")
-    except UnsafePath:
-        raise Http404("No such file.") from None
     content_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
-    response = _ranged(request, store, name, content_type) or FileResponse(
-        store.open(name), content_type=content_type
-    )
+    try:  # a rerun or delete can remove the file mid-request
+        response = _ranged(request, store, name, content_type) or FileResponse(
+            store.open(name), content_type=content_type
+        )
+    except (UnsafePath, FileNotFoundError):
+        raise Http404("No such file.") from None
     response["Accept-Ranges"] = "bytes"
     # Generated files only, but an SVG opened directly must never run script.
     response["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; img-src data:"

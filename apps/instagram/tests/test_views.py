@@ -253,6 +253,11 @@ class MediaTests(ReelViewTestCase):
         assert tail.content == b"789"
         assert self.client.get(self.url, headers={"Range": "bytes=50-"}).status_code == 416
 
+    def test_a_file_removed_mid_request_is_a_404(self):
+        storage = self.reel.store().storage
+        with mock.patch.object(type(storage), "size", side_effect=FileNotFoundError):
+            assert self.client.get(self.url, headers={"Range": "bytes=2-5"}).status_code == 404
+
     def test_paths_outside_the_reel_and_other_tenants_are_404(self):
         escape = reverse("reel_media", args=[self.reel.pk, "../x"])
         assert self.client.get(escape).status_code == 404
