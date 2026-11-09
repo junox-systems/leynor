@@ -27,12 +27,16 @@ services:
       # https origin(s) nginx serves, e.g. https://example.com
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?CSRF_TRUSTED_ORIGINS required}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required}
-      APP_ARTIFACT_ENDPOINT_URL: http://s3:8333
+      # Artifacts: their own private bucket, provisioned outside the stack. Empty
+      # endpoint means AWS. Keys stay required: the AWS_* media keys share this
+      # environment, and boto's credential chain would pick them up.
+      APP_ARTIFACT_ENDPOINT_URL: ${APP_ARTIFACT_ENDPOINT_URL:-}
+      APP_ARTIFACT_BUCKET: ${APP_ARTIFACT_BUCKET:?APP_ARTIFACT_BUCKET required}
+      APP_ARTIFACT_REGION: ${APP_ARTIFACT_REGION:-us-east-1}
       APP_ARTIFACT_ACCESS_KEY: ${APP_ARTIFACT_ACCESS_KEY:?APP_ARTIFACT_ACCESS_KEY required}
       APP_ARTIFACT_SECRET_KEY: ${APP_ARTIFACT_SECRET_KEY:?APP_ARTIFACT_SECRET_KEY required}
     depends_on:
       - db
-      - s3
     healthcheck:
       # /healthz/ pings the DB; ALLOWED_HOSTS must keep localhost for this.
       test: ["CMD", "curl", "-fsS", "-H", "Host: localhost", "http://127.0.0.1:8000/healthz/"]
@@ -61,7 +65,12 @@ services:
       Q_CLUSTER_TIMEOUT: 3600
       Q_CLUSTER_RETRY: 3900
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required}
-      APP_ARTIFACT_ENDPOINT_URL: http://s3:8333
+      # Artifacts: their own private bucket, provisioned outside the stack. Empty
+      # endpoint means AWS. Keys stay required: the AWS_* media keys share this
+      # environment, and boto's credential chain would pick them up.
+      APP_ARTIFACT_ENDPOINT_URL: ${APP_ARTIFACT_ENDPOINT_URL:-}
+      APP_ARTIFACT_BUCKET: ${APP_ARTIFACT_BUCKET:?APP_ARTIFACT_BUCKET required}
+      APP_ARTIFACT_REGION: ${APP_ARTIFACT_REGION:-us-east-1}
       APP_ARTIFACT_ACCESS_KEY: ${APP_ARTIFACT_ACCESS_KEY:?APP_ARTIFACT_ACCESS_KEY required}
       APP_ARTIFACT_SECRET_KEY: ${APP_ARTIFACT_SECRET_KEY:?APP_ARTIFACT_SECRET_KEY required}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost}
@@ -71,7 +80,6 @@ services:
       AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-}
     depends_on:
       - db
-      - s3
     networks:
       - backend
 
@@ -101,32 +109,18 @@ services:
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?CSRF_TRUSTED_ORIGINS required}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required}
-      APP_ARTIFACT_ENDPOINT_URL: http://s3:8333
+      # Artifacts: their own private bucket, provisioned outside the stack. Empty
+      # endpoint means AWS. Keys stay required: the AWS_* media keys share this
+      # environment, and boto's credential chain would pick them up.
+      APP_ARTIFACT_ENDPOINT_URL: ${APP_ARTIFACT_ENDPOINT_URL:-}
+      APP_ARTIFACT_BUCKET: ${APP_ARTIFACT_BUCKET:?APP_ARTIFACT_BUCKET required}
+      APP_ARTIFACT_REGION: ${APP_ARTIFACT_REGION:-us-east-1}
       APP_ARTIFACT_ACCESS_KEY: ${APP_ARTIFACT_ACCESS_KEY:?APP_ARTIFACT_ACCESS_KEY required}
       APP_ARTIFACT_SECRET_KEY: ${APP_ARTIFACT_SECRET_KEY:?APP_ARTIFACT_SECRET_KEY required}
     depends_on:
       - db
-      - s3
     healthcheck:
       disable: true
-    networks:
-      - backend
-
-  # Reel artifacts: SeaweedFS S3, private to the backend network. Web and both
-  # workers read and write it; browsers get files only through the app.
-  s3:
-    image: chrislusf/seaweedfs:4.52
-    command: server -s3 -dir=/data
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: any
-    environment:
-      # With no -s3.config, these become the one admin identity.
-      AWS_ACCESS_KEY_ID: ${APP_ARTIFACT_ACCESS_KEY:?APP_ARTIFACT_ACCESS_KEY required}
-      AWS_SECRET_ACCESS_KEY: ${APP_ARTIFACT_SECRET_KEY:?APP_ARTIFACT_SECRET_KEY required}
-    volumes:
-      - s3_data:/data
     networks:
       - backend
 
@@ -175,7 +169,6 @@ configs:
     file: ./prod/nginx/nginx.conf
 
 volumes:
-  s3_data:
   postgres_data:
 
 networks:
