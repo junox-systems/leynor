@@ -416,7 +416,7 @@ def print_step(reel, note: str = "") -> dict:
     _verify(
         store,
         {row["key"]: row["sha"] for row in look.get("visuals", [])}
-        | ({VOICE_KEY: voice["sha"]} if voice.get("sha") else {}),
+        | {VOICE_KEY: voice.get("sha")},  # no sha: Voice ran before checksums, run it again
     )
     visuals = {row["index"]: [row["key"]] for row in look.get("visuals", [])}
     keys = run_compose(

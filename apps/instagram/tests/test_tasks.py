@@ -187,6 +187,44 @@ class ArtifactTests(RouteTaskTestCase):
         with self.assertRaisesMessage(services.StepFailed, "assets/voice.wav is missing"):
             services._verify(store, {services.VOICE_KEY: sha})
 
+    def test_print_refuses_a_voice_that_changed_after_voice_checked_it(self):
+        reel = self.picked()
+        voice, print_ = fakes.engines()
+        with voice, print_:
+            reel.gates.get(step=Step.BOARD).decide(GateResult.APPROVED, self.user)
+            tasks.queue_advance(reel)  # Look runs for real
+
+        def run_voice(spec, store):
+            store.put(services.VOICE_KEY, b"RIFF voice")
+            return mock.Mock(
+                max_silence=0.2,
+                loudness=-14.0,
+                model_dump=lambda: {"cues": [], "duration": 61.0, "loudness": -14.0},
+            )
+
+        with mock.patch("apps.video.audio.services.run_voice", run_voice):
+            output = services.voice_step(reel)
+        gate = reel.gates.get(step=Step.VOICE)
+        gate.output = output
+        gate.save()
+
+        with (
+            mock.patch("apps.video.services.run_compose", return_value=[]) as compose,
+            mock.patch("apps.video.services.run_print") as print_,
+        ):
+            services.print_step(reel)  # unchanged: renders
+            assert print_.called
+
+            reel.store().put(services.VOICE_KEY, b"RIFF edited")
+            compose.reset_mock()
+            with self.assertRaisesMessage(services.StepFailed, "voice.wav changed"):
+                services.print_step(reel)
+            gate.output = {k: v for k, v in output.items() if k != "sha"}
+            gate.save()
+            with self.assertRaisesMessage(services.StepFailed, "Run Look or Voice again"):
+                services.print_step(reel)
+            compose.assert_not_called()
+
     def test_deleting_a_reel_deletes_its_files_after_commit(self):
         reel = self.picked()
         store = reel.store()
