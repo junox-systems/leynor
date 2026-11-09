@@ -319,19 +319,24 @@ if STORAGE_BACKEND not in STORAGE_BACKENDS:
 
 STORAGES["default"] = {"BACKEND": STORAGE_BACKENDS[STORAGE_BACKEND]}
 
-# Reel artifacts: always a private S3 bucket (SeaweedFS in dev, CI and the
-# stack; any S3 service works), never MEDIA_URL. Web and both workers then see
-# the same bytes, and dev runs the code path prod runs. The authenticated
-# reel_media view streams them; the bucket is never public.
+# Reel artifacts: always a private S3 bucket of their own, never MEDIA_URL and
+# never the media bucket. Dev and CI run SeaweedFS (APP_ARTIFACT_ENDPOINT_URL);
+# production uses AWS or any S3 service. Web and both workers see the same
+# bytes, and the authenticated reel_media view streams them.
+# Empty keys mean boto's own credential chain (an IAM role), not the media
+# AWS_* settings. That chain does read AWS_* env vars, so wherever media keys
+# are in the environment (the stack), set the artifact keys explicitly.
+_ARTIFACT_ENDPOINT = env("APP_ARTIFACT_ENDPOINT_URL", default="") or None
 STORAGES["artifacts"] = {
     "BACKEND": "storages.backends.s3.S3Storage",
     "OPTIONS": {
         "bucket_name": env("APP_ARTIFACT_BUCKET", default="artifacts"),
-        "endpoint_url": env("APP_ARTIFACT_ENDPOINT_URL", default="http://s3:8333"),
-        "access_key": env("APP_ARTIFACT_ACCESS_KEY", default=""),
-        "secret_key": env("APP_ARTIFACT_SECRET_KEY", default=""),
+        "endpoint_url": _ARTIFACT_ENDPOINT,
+        "access_key": env("APP_ARTIFACT_ACCESS_KEY", default="") or None,
+        "secret_key": env("APP_ARTIFACT_SECRET_KEY", default="") or None,
         "region_name": env("APP_ARTIFACT_REGION", default="us-east-1"),
-        "addressing_style": "path",
+        # SeaweedFS has no per-bucket hostnames; AWS picks its own style.
+        "addressing_style": "path" if _ARTIFACT_ENDPOINT else None,
         "file_overwrite": True,
         "default_acl": None,
         "querystring_auth": True,
