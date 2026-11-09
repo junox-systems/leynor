@@ -1,9 +1,8 @@
 [project]
 name = "leynor"
-version = "0.1.0"
+version = "0.2.0"
 description = "Leynor: one gated route from an idea to a rendered 9:16 Reel"
 readme = "README.md"
-license = "Apache-2.0"
 requires-python = ">=3.14"
 dependencies = [
     # Core
