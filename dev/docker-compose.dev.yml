@@ -75,7 +75,7 @@ services:
     networks:
       - default
 
-  # Reel artifacts: the same SeaweedFS S3 store the stack runs, so web and both
+  # Reel artifacts: SeaweedFS speaks the S3 API production's bucket speaks, so web and both
   # workers share bytes exactly as in production. No host port: the reel page
   # streams files through Django, as it does in production.
   s3:
