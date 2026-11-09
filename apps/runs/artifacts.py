@@ -59,8 +59,10 @@ class ArtifactStore:
         """Write (or replace) one artifact. Returns its sha256."""
         raw = data.encode() if isinstance(data, str) else data
         name = self.name(key)
-        # Some storages rename instead of overwriting; a step's key must not move.
-        self.storage.delete(name)
+        # S3 replaces in one PUT, so a failed upload keeps the old file. Other
+        # storages rename instead of overwriting; a step's key must not move.
+        if not getattr(self.storage, "file_overwrite", False):
+            self.storage.delete(name)
         saved = self.storage.save(name, ContentFile(raw))
         if saved != name:
             raise RuntimeError(f"storage saved {key} as {saved}")

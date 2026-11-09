@@ -1,4 +1,5 @@
 import hashlib
+from unittest import mock
 
 import pytest
 from django.core.files.storage import FileSystemStorage, InMemoryStorage
@@ -34,6 +35,24 @@ def test_put_overwrites_in_place(storage, tmp_path):
 
     assert store.get("a.txt") == b"second"
     assert store.storage.listdir("reel") == ([], ["a.txt"])
+
+
+class OverwritingStorage(InMemoryStorage):
+    file_overwrite = True  # like S3Storage
+
+    def get_available_name(self, name, max_length=None):
+        return name
+
+
+def test_a_failed_overwrite_keeps_the_old_file():
+    store = ArtifactStore("reel", OverwritingStorage())
+    store.put("out.mp4", "old")
+    with (
+        mock.patch.object(store.storage, "_save", side_effect=OSError("upload failed")),
+        pytest.raises(OSError),
+    ):
+        store.put("out.mp4", "new")
+    assert store.get("out.mp4") == b"old"
 
 
 def test_get_missing_raises(store):
