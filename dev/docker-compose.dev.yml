@@ -50,6 +50,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      s3:
+        condition: service_started
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/${POSTGRES_DB:-${APP_SLUG:-leynor}}
@@ -57,6 +59,9 @@ services:
       - OTEL_ENABLED=${OTEL_ENABLED:-true}
       - VITE_HYPERDX_URL=http://localhost:4318
       - VITE_HYPERDX_SERVICE=${APP_SLUG:-leynor}-frontend
+      - APP_ARTIFACT_ENDPOINT_URL=http://s3:8333
+      - APP_ARTIFACT_ACCESS_KEY=leynor-dev
+      - APP_ARTIFACT_SECRET_KEY=leynor-dev-secret
     volumes:
       - ..:/app
       - python_venv:/app/.venv
@@ -67,6 +72,23 @@ services:
     ports:
       - "8000:8000" # Django
       - "5173:5173" # Vite
+    networks:
+      - default
+
+  # Reel artifacts: the same SeaweedFS S3 store the stack runs, so web and both
+  # workers share bytes exactly as in production. No host port: the reel page
+  # streams files through Django, as it does in production.
+  s3:
+    image: chrislusf/seaweedfs:4.52
+    container_name: ${APP_SLUG:-leynor}-s3
+    restart: unless-stopped
+    command: server -s3 -dir=/data
+    environment:
+      # With no -s3.config, these become the one admin identity.
+      - AWS_ACCESS_KEY_ID=leynor-dev
+      - AWS_SECRET_ACCESS_KEY=leynor-dev-secret
+    volumes:
+      - s3_data:/data
     networks:
       - default
 
@@ -83,6 +105,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      s3:
+        condition: service_started
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/${POSTGRES_DB:-${APP_SLUG:-leynor}}
@@ -91,7 +115,9 @@ services:
       - Q_CLUSTER_TIMEOUT=3600
       - Q_CLUSTER_RETRY=3900
       - OTEL_ENABLED=false
-      - APP_ARTIFACT_ROOT=/app/var/artifacts
+      - APP_ARTIFACT_ENDPOINT_URL=http://s3:8333
+      - APP_ARTIFACT_ACCESS_KEY=leynor-dev
+      - APP_ARTIFACT_SECRET_KEY=leynor-dev-secret
     volumes:
       - ..:/app
       - heavy_venv:/app/.venv
@@ -100,6 +126,7 @@ services:
 
 volumes:
   postgres_data:
+  s3_data:
   python_venv:
   heavy_venv:
   frontend_node_modules:

@@ -5,14 +5,15 @@ The route is data: one `ReelGate` row per step, and `current_gate` is the first
 one still open. Nothing stores the reel's position.
 """
 
+import logging
+
 from pydantic import ValidationError as PydanticValidationError
 
-from pathlib import Path
-
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -26,8 +27,10 @@ from apps.campaigns.routes import (
 from apps.core.models import BaseModel
 from apps.instagram.gates import Step, gate_kind
 from apps.instagram.steps import resolve
-from apps.runs.artifacts import FileStore
+from apps.runs.artifacts import ArtifactStore
 from apps.video.spec import ReelSpec
+
+log = logging.getLogger(__name__)
 
 __all__ = [
     "GateOutOfOrder",
@@ -149,16 +152,13 @@ class Reel(Unit):
             return False
         return gate.awaiting_person or gate.status == RunStatus.FAILED
 
-    def store(self) -> FileStore:
-        """This reel's artifacts, laid out like `runs.artifact_key` without a run."""
+    def store(self) -> ArtifactStore:
+        """This reel's artifacts: org/project/campaign/reel/<key> in the artifacts storage."""
         campaign = self.campaign
-        return FileStore(
-            Path(
-                settings.APP_ARTIFACT_ROOT,
-                str(campaign.project.organization_id),
-                str(campaign.project_id),
-                str(campaign.pk),
-                str(self.pk),
+        return ArtifactStore(
+            "/".join(
+                str(part)
+                for part in (campaign.project.organization_id, campaign.project_id, campaign.pk, self.pk)
             )
         )
 
@@ -414,3 +414,17 @@ class InstagramPublication(PublicationBase):
 
     class Meta:
         ordering = ["-published_at", "-created_at"]
+
+
+@receiver(post_delete, sender=Reel)
+def delete_artifacts(sender, instance, **kwargs):
+    """A deleted reel takes its files with it, once the delete is committed."""
+    store = instance.store()
+
+    def remove():
+        try:
+            store.delete_all()
+        except Exception:  # the row is gone either way; leftovers only cost space
+            log.exception("could not delete artifacts under %s", store.prefix)
+
+    transaction.on_commit(remove)

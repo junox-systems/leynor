@@ -48,7 +48,7 @@ apps/           # ALL backend code. Never at project root
   text/         # text engine: schema-free drafting (pydantic-ai)
   image/        # image engine: procedural + waveform visuals
   video/        # video engine: ReelSpec, compose, encode, audio
-  runs/         # artifact store
+  runs/         # artifact store (`artifacts` Django storage: SeaweedFS S3 in dev, CI, prod)
   ai/           # AI providers, models, job assignments (admin-managed)
 config/
   settings/     # base / dev / production / test
@@ -92,7 +92,7 @@ Four layers, one direction: **channel app → engine → store/core**.
 - `Unit.organization` resolves through the campaign. RBAC reads that attribute (`rbac._organization_of`); without it every unit page is denied.
 - `text.services.draft(brief, model=..., instructions=...)` is schema-free; `text.services.structured(brief, output_type=..., model=...)` returns the caller's pydantic type (the schema lives in the channel). Engines never pick a model: the channel asks `apps.ai.services.llm(purpose)` and passes it in. `image.services.generate(slug, scenes, store)` reads only labels. `video` accepts a `ReelSpec` and returns an mp4.
 - Engines never import a channel app or an ORM model. A channel may import the store (`runs`) for its artifacts. Channel apps never import each other. Campaigns never import a channel app or the brands app: reach audiences through `project.brand` (guarded by `tests/test_layering.py`).
-- Reel flow: idea → `ReelPitch` (rounds of three concepts, `tasks.pitch`) → a pick creates the `Reel` with Spark decided → `tasks.advance` runs one step per task, auto-passes steps whose checks hold, and stops at Board, Print or a failure. Voice and Print run on the heavy cluster (`<APP_SLUG>-heavy`); every enqueue names its cluster. Step output lives on `ReelGate.output`; artifacts in `Reel.store()`.
+- Reel flow: idea → `ReelPitch` (rounds of three concepts, `tasks.pitch`) → a pick creates the `Reel` with Spark decided → `tasks.advance` runs one step per task, auto-passes steps whose checks hold, and stops at Board, Print or a failure. Voice and Print run on the heavy cluster (`<APP_SLUG>-heavy`); every enqueue names its cluster. Step output lives on `ReelGate.output`; artifacts in `Reel.store()`: an `ArtifactStore` over `STORAGES["artifacts"]` (S3, SeaweedFS service `s3` in dev compose and the stack; `InMemoryStorage` in tests), streamed by `reel_media`, deleted with the reel. Each step records file sha256s; Print refuses inputs that changed.
 - AI config (`apps/ai`, admin → AI): `Provider` (OpenAI-compatible URL or a pydantic-ai provider, encrypted `api_key` via `APP_SECRETS_KEY`) → `Model` (kind llm/image/video/embedding) → `Assignment` (purpose → model + optional fallback). Purposes live in `ai.registry.PURPOSES`; a purpose without its own assignment uses `default.<kind>`. A new job = one `PURPOSES` entry.
 - Publishing settings: `INSTAGRAM_ACCOUNT_ID`, `INSTAGRAM_ACCESS_TOKEN`, `PUBLIC_MEDIA_BASE_URL`. Empty means `PublishUnavailable`, never a fake success.
 

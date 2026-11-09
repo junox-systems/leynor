@@ -11,18 +11,22 @@ ENV=(
   -e DEFAULT_FROM_EMAIL=smoke@example.com
   -e CSRF_TRUSTED_ORIGINS=https://example.com
   -e ALLOWED_HOSTS=localhost
+  -e APP_ARTIFACT_ENDPOINT_URL="http://$P-s3:8333"
+  -e APP_ARTIFACT_ACCESS_KEY=smoke
+  -e APP_ARTIFACT_SECRET_KEY="smoke-secret"
 )
 
-cleanup() { docker rm -f "$P-web" "$P-q" "$P-db" >/dev/null 2>&1 || true; docker network rm "$P" >/dev/null 2>&1 || true; }
+cleanup() { docker rm -f "$P-web" "$P-q" "$P-db" "$P-s3" >/dev/null 2>&1 || true; docker network rm "$P" >/dev/null 2>&1 || true; }
 fail() {
   echo "FAIL: $*"
-  for c in web q; do echo "--- $c logs ---"; docker logs "$P-$c" 2>&1 | tail -30 || true; done
+  for c in web q s3; do echo "--- $c logs ---"; docker logs "$P-$c" 2>&1 | tail -30 || true; done
   exit 1
 }
 trap cleanup EXIT
 
 docker network create "$P" >/dev/null
 docker run -d --name "$P-db" --network "$P" -e POSTGRES_USER=${APP_SLUG:-leynor} -e POSTGRES_PASSWORD=smoke -e POSTGRES_DB=${APP_SLUG:-leynor} paradedb/paradedb:0.26.2-pg18 >/dev/null
+docker run -d --name "$P-s3" --network "$P" -e AWS_ACCESS_KEY_ID=smoke -e AWS_SECRET_ACCESS_KEY=smoke-secret chrislusf/seaweedfs:4.52 server -s3 -dir=/data >/dev/null
 docker run -d --name "$P-web" --network "$P" "${ENV[@]}" "$IMAGE" >/dev/null
 docker run -d --name "$P-q" --network "$P" "${ENV[@]}" "$IMAGE" python manage.py qcluster >/dev/null
 
@@ -54,5 +58,13 @@ done
 for _ in $(seq 30); do docker logs "$P-q" 2>&1 | grep -q "Q Cluster .* running" && break; sleep 2; done
 docker logs "$P-q" 2>&1 | grep -q "Q Cluster .* running" || fail "qcluster did not start"
 echo "200 qcluster running"
+
+# Reel artifacts: what one process writes, another reads (web -> worker).
+key="smoke/$P.txt"
+docker exec "$P-web" python manage.py shell -c "from apps.runs.artifacts import ArtifactStore; ArtifactStore().put('$key', 'smoke-bytes')" >/dev/null 2>&1 \
+  || fail "web could not write an artifact"
+got=$(docker exec "$P-q" python manage.py shell -c "from apps.runs.artifacts import ArtifactStore; print(ArtifactStore().get('$key').decode())" 2>/dev/null | tail -1)
+[ "$got" = smoke-bytes ] || fail "qcluster read '$got' from the artifact store, expected smoke-bytes"
+echo "200 artifacts shared between web and qcluster"
 
 echo "OK: $IMAGE"

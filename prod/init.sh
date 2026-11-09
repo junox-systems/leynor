@@ -29,6 +29,7 @@ echo "Database ready."
 
 echo "Running migrations..."
 python manage.py migrate_locked
+python manage.py artifact_bucket
 
 echo "Starting: $@"
 exec "$@"

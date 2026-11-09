@@ -248,11 +248,6 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 # Reel pipeline
 # ------------------------------------------------------------------------------
-# Artifacts never go through MEDIA_URL: they are private and served by an
-# authenticated view. Local disk now, private bucket later, same Store contract.
-APP_ARTIFACT_ROOT = Path(
-    env("APP_ARTIFACT_ROOT", default=str(BASE_DIR / "var" / "artifacts"))
-)
 # Fernet key that encrypts provider API keys at rest (apps.ai). Development
 # derives one from SECRET_KEY when unset; production must set it.
 APP_SECRETS_KEY = env("APP_SECRETS_KEY", default="")
@@ -323,6 +318,27 @@ if STORAGE_BACKEND not in STORAGE_BACKENDS:
     )
 
 STORAGES["default"] = {"BACKEND": STORAGE_BACKENDS[STORAGE_BACKEND]}
+
+# Reel artifacts: always a private S3 bucket (SeaweedFS in dev, CI and the
+# stack; any S3 service works), never MEDIA_URL. Web and both workers then see
+# the same bytes, and dev runs the code path prod runs. The authenticated
+# reel_media view streams them; the bucket is never public.
+STORAGES["artifacts"] = {
+    "BACKEND": "storages.backends.s3.S3Storage",
+    "OPTIONS": {
+        "bucket_name": env("APP_ARTIFACT_BUCKET", default="artifacts"),
+        "endpoint_url": env("APP_ARTIFACT_ENDPOINT_URL", default="http://s3:8333"),
+        "access_key": env("APP_ARTIFACT_ACCESS_KEY", default=""),
+        "secret_key": env("APP_ARTIFACT_SECRET_KEY", default=""),
+        "region_name": env("APP_ARTIFACT_REGION", default="us-east-1"),
+        "addressing_style": "path",
+        "file_overwrite": True,
+        "default_acl": None,
+        "querystring_auth": True,
+        "custom_domain": None,
+        "location": "",
+    },
+}
 
 if STORAGE_BACKEND == "s3":
     STORAGES["default"]["OPTIONS"] = {

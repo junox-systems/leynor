@@ -375,7 +375,8 @@ def look_step(reel, note: str = "") -> dict:
 def voice_step(reel, note: str = "") -> dict:
     from apps.video.audio.services import run_voice
 
-    result = run_voice(_spec(reel), reel.store())
+    store = reel.store()
+    result = run_voice(_spec(reel), store)
     problems = []
     if result.max_silence > MAX_PAUSE:
         problems.append(f"a {result.max_silence:.1f} s pause is over the {MAX_PAUSE} s limit")
@@ -383,7 +384,25 @@ def voice_step(reel, note: str = "") -> dict:
         problems.append(f"loudness {result.loudness:.1f} LUFS is outside -15.5 to -12.5")
     if problems:
         raise StepFailed("; ".join(problems))
-    return result.model_dump()
+    return {**result.model_dump(), "sha": store.sha256(VOICE_KEY)}
+
+
+VOICE_KEY = "assets/voice.wav"
+
+
+def _verify(store, expected: dict[str, str]):
+    """Print renders only the files Look and Voice checked, byte for byte."""
+    from apps.runs.artifacts import ArtifactMissing
+
+    problems = []
+    for key, sha in expected.items():
+        try:
+            if store.sha256(key) != sha:
+                problems.append(f"{key} changed since it was checked")
+        except ArtifactMissing:
+            problems.append(f"{key} is missing")
+    if problems:
+        raise StepFailed("; ".join(problems) + ". Run Look or Voice again.")
 
 
 def print_step(reel, note: str = "") -> dict:
@@ -394,6 +413,11 @@ def print_step(reel, note: str = "") -> dict:
     voice = reel.gates.get(step=Step.VOICE).output
     look = reel.gates.get(step=Step.LOOK).output
     store = reel.store()
+    _verify(
+        store,
+        {row["key"]: row["sha"] for row in look.get("visuals", [])}
+        | ({VOICE_KEY: voice["sha"]} if voice.get("sha") else {}),
+    )
     visuals = {row["index"]: [row["key"]] for row in look.get("visuals", [])}
     keys = run_compose(
         spec,
@@ -403,6 +427,6 @@ def print_step(reel, note: str = "") -> dict:
         store,
     )
     # The composition points at the visuals and the voice; the encoder needs them.
-    assets = [key for refs in visuals.values() for key in refs] + ["assets/voice.wav"]
+    assets = [key for refs in visuals.values() for key in refs] + [VOICE_KEY]
     result = run_print(store, keys + assets, duration=voice["duration"])
     return {**result.model_dump(), "loudness": voice["loudness"], "cues": len(voice["cues"])}
