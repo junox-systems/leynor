@@ -24,7 +24,7 @@ just install
 # compose waits for the db healthcheck, so the database is reachable here.
 echo "Running migrations..."
 uv run python manage.py migrate --noinput
-uv run python manage.py artifact_bucket
+uv run python manage.py artifact_bucket --create
 
 # Add node_modules/.bin to PATH for vite command
 export PATH="/app/frontend/node_modules/.bin:$PATH"

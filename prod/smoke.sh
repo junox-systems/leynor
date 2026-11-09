@@ -27,6 +27,9 @@ trap cleanup EXIT
 docker network create "$P" >/dev/null
 docker run -d --name "$P-db" --network "$P" -e POSTGRES_USER=${APP_SLUG:-leynor} -e POSTGRES_PASSWORD=smoke -e POSTGRES_DB=${APP_SLUG:-leynor} paradedb/paradedb:0.26.2-pg18 >/dev/null
 docker run -d --name "$P-s3" --network "$P" -e AWS_ACCESS_KEY_ID=smoke -e AWS_SECRET_ACCESS_KEY=smoke-secret chrislusf/seaweedfs:4.52 server -s3 -dir=/data >/dev/null
+# Production startup only checks the bucket; here, like a provisioned bucket, it exists first.
+docker run --rm --network "$P" "${ENV[@]}" --entrypoint python "$IMAGE" manage.py artifact_bucket --create \
+  || fail "could not create the artifacts bucket"
 docker run -d --name "$P-web" --network "$P" "${ENV[@]}" "$IMAGE" >/dev/null
 docker run -d --name "$P-q" --network "$P" "${ENV[@]}" "$IMAGE" python manage.py qcluster >/dev/null
 
