@@ -238,16 +238,14 @@ def step_retry(request, pk, step):
 def reel_media(request, pk, name):
     """One artifact of this reel: a visual, the voice, or the render."""
     reel = _reel(request, pk)
-    try:
-        path = reel.store().path(name)
-    except UnsafePath:
+    store = reel.store()
+    content_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
+    try:  # a rerun or delete can remove the file mid-request
+        response = _ranged(request, store, name, content_type) or FileResponse(
+            store.open(name), content_type=content_type
+        )
+    except (UnsafePath, FileNotFoundError):
         raise Http404("No such file.") from None
-    if not path.is_file():
-        raise Http404("No such file.")
-    content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-    response = _ranged(request, path, content_type) or FileResponse(
-        path.open("rb"), content_type=content_type
-    )
     response["Accept-Ranges"] = "bytes"
     # Generated files only, but an SVG opened directly must never run script.
     response["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
@@ -258,12 +256,12 @@ def reel_media(request, pk, name):
 RANGE = re.compile(r"^bytes=(\d*)-(\d*)$")
 
 
-def _ranged(request, path, content_type):
+def _ranged(request, store, name, content_type):
     """A 206 for one byte range: Safari will not play a video without it."""
     match = RANGE.match(request.headers.get("Range", ""))
     if not match or match.groups() == ("", ""):
         return None
-    size = path.stat().st_size
+    size = store.size(name)
     first, last = match.groups()
     if first:
         start, end = int(first), min(int(last) if last else size - 1, size - 1)
@@ -273,9 +271,7 @@ def _ranged(request, path, content_type):
         response = HttpResponse(status=416)
         response["Content-Range"] = f"bytes */{size}"
         return response
-    with path.open("rb") as handle:
-        handle.seek(start)
-        body = handle.read(end - start + 1)
+    body = store.read_range(name, start, end)
     response = HttpResponse(body, status=206, content_type=content_type)
     response["Content-Range"] = f"bytes {start}-{end}/{size}"
     return response

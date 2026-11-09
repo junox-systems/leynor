@@ -4,7 +4,9 @@ from dataclasses import dataclass
 
 from apps.image import services
 from apps.image.tools import Procedural, catalogue
-from apps.runs.artifacts import FileStore
+from django.core.files.storage import InMemoryStorage
+
+from apps.runs.artifacts import ArtifactStore
 
 
 @dataclass
@@ -13,7 +15,7 @@ class Scene:
 
 
 def test_generate_writes_one_visual_per_scene_and_credits(tmp_path):
-    store = FileStore(tmp_path)
+    store = ArtifactStore(storage=InMemoryStorage())
     written = services.generate("ep-image", [Scene("a"), Scene("b")], store)
 
     assert [row["index"] for row in written] == [1, 2]
@@ -24,8 +26,8 @@ def test_generate_writes_one_visual_per_scene_and_credits(tmp_path):
 
 
 def test_generate_is_deterministic(tmp_path):
-    first = FileStore(tmp_path / "one")
-    second = FileStore(tmp_path / "two")
+    first = ArtifactStore(storage=InMemoryStorage())
+    second = ArtifactStore(storage=InMemoryStorage())
     scenes = [Scene("a")]
     a = services.generate("ep-image", scenes, first)
     b = services.generate("ep-image", scenes, second)
@@ -35,7 +37,7 @@ def test_generate_is_deterministic(tmp_path):
 
 
 def test_generate_accepts_an_injected_tool(tmp_path):
-    store = FileStore(tmp_path)
+    store = ArtifactStore(storage=InMemoryStorage())
     written = services.generate("ep-image", [Scene("a")], store, tool=Procedural())
 
     assert written[0]["tool"] == "procedural"

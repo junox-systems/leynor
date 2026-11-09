@@ -1,22 +1,27 @@
-"""Artifact bytes for one run.
+"""Artifact bytes, kept in the `artifacts` Django storage.
 
-Local disk now, S3 later: one contract, two implementations. Keys are posix
-paths relative to the storage root, never absolute, never containing ``..``.
+Every process (web, the default worker, the heavy worker) reads and writes the
+same bucket, so a file one step writes is there for the next step and for the
+page that shows it. Keys are posix paths below one prefix, never absolute,
+never containing ``..``.
 """
 
 from __future__ import annotations
 
 import hashlib
-import os
 import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
-from typing import Protocol, runtime_checkable
+from typing import IO, Protocol, runtime_checkable
+
+from botocore.exceptions import ClientError
+from django.core.files.base import ContentFile
+from django.core.files.storage import Storage, storages
 
 
 class UnsafePath(ValueError):
-    """A key escapes the storage root or is absolute."""
+    """A key escapes its prefix or is absolute."""
 
 
 class ArtifactMissing(FileNotFoundError):
@@ -32,77 +37,92 @@ def safe_key(key: str) -> PurePosixPath:
     return path
 
 
-def artifact_key(
-    organization_id: object,
-    project_id: object,
-    campaign_id: object,
-    unit_id: object,
-    run_id: object,
-    name: str,
-) -> str:
-    """One artifact inside one run, scoped by org, project, campaign and unit."""
-    return "/".join(
-        [
-            str(organization_id),
-            str(project_id),
-            str(campaign_id),
-            str(unit_id),
-            str(run_id),
-            str(safe_key(name)),
-        ]
-    )
-
-
 @runtime_checkable
 class Store(Protocol):
     def put(self, key: str, data: bytes | str) -> str: ...
-
     def get(self, key: str) -> bytes: ...
-
     def delete(self, key: str) -> None: ...
-
     def tmpdir(self) -> Iterator[Path]: ...
 
 
-class FileStore:
-    """Writes below one root. Temp file in the target directory, then rename."""
+class ArtifactStore:
+    """One unit's artifacts: keys below `prefix` in a Django storage."""
 
-    def __init__(self, root: Path | str):
-        self.root = Path(root).resolve()
-        self.root.mkdir(parents=True, exist_ok=True)
+    def __init__(self, prefix: str = "", storage: Storage | None = None):
+        self.prefix = prefix.strip("/")
+        self.storage = storage if storage is not None else storages["artifacts"]
 
-    def path(self, key: str) -> Path:
-        target = (self.root / safe_key(key)).resolve()
-        if target != self.root and self.root not in target.parents:
-            raise UnsafePath(key)
-        return target
+    def name(self, key: str) -> str:
+        key = safe_key(key).as_posix()
+        return f"{self.prefix}/{key}" if self.prefix else key
 
     def put(self, key: str, data: bytes | str) -> str:
-        target = self.path(key)
-        target.parent.mkdir(parents=True, exist_ok=True)
+        """Write (or replace) one artifact. Returns its sha256."""
         raw = data.encode() if isinstance(data, str) else data
-        handle, tmp = tempfile.mkstemp(dir=target.parent, prefix=".tmp-")
-        try:
-            with os.fdopen(handle, "wb") as fh:
-                fh.write(raw)
-                fh.flush()
-                os.fsync(fh.fileno())
-            os.replace(tmp, target)
-        except BaseException:
-            Path(tmp).unlink(missing_ok=True)
-            raise
+        name = self.name(key)
+        # S3 replaces in one PUT, so a failed upload keeps the old file. Other
+        # storages rename instead of overwriting; a step's key must not move.
+        if not getattr(self.storage, "file_overwrite", False):
+            self.storage.delete(name)
+        saved = self.storage.save(name, ContentFile(raw))
+        if saved != name:
+            raise RuntimeError(f"storage saved {key} as {saved}")
         return hashlib.sha256(raw).hexdigest()
 
     def get(self, key: str) -> bytes:
+        with self.open(key) as handle:
+            return handle.read()
+
+    def open(self, key: str) -> IO[bytes]:
+        name = self.name(key)
+        if not self.storage.exists(name):
+            raise ArtifactMissing(key)
+        return self.storage.open(name, "rb")
+
+    def read_range(self, key: str, start: int, end: int) -> bytes:
+        """Bytes start..end inclusive, without downloading the whole file from S3."""
+        name = self.name(key)
+        if not hasattr(self.storage, "bucket"):
+            with self.open(key) as handle:
+                handle.seek(start)
+                return handle.read(end - start + 1)
         try:
-            return self.path(key).read_bytes()
-        except FileNotFoundError:
-            raise ArtifactMissing(key) from None
+            obj = self.storage.bucket.Object(self.storage._normalize_name(name))
+            return obj.get(Range=f"bytes={start}-{end}")["Body"].read()
+        except ClientError as exc:
+            if exc.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
+                raise ArtifactMissing(key) from exc
+            raise
+
+    def exists(self, key: str) -> bool:
+        return self.storage.exists(self.name(key))
+
+    def size(self, key: str) -> int:
+        return self.storage.size(self.name(key))
+
+    def sha256(self, key: str) -> str:
+        return hashlib.sha256(self.get(key)).hexdigest()
 
     def delete(self, key: str) -> None:
-        self.path(key).unlink(missing_ok=True)
+        self.storage.delete(self.name(key))
+
+    def delete_all(self) -> None:
+        """Every artifact under the prefix."""
+        if not self.prefix:
+            raise UnsafePath("refusing to delete a whole storage")
+        pending = [self.prefix]
+        while pending:
+            folder = pending.pop()
+            try:
+                folders, files = self.storage.listdir(folder)
+            except FileNotFoundError:  # nothing was ever written here
+                continue
+            pending += [f"{folder}/{name}" for name in folders]
+            for name in files:
+                self.storage.delete(f"{folder}/{name}")
 
     @contextmanager
     def tmpdir(self) -> Iterator[Path]:
-        with tempfile.TemporaryDirectory(dir=self.root) as handle:
+        """Local scratch space: ffmpeg, Chromium and whisper need real files."""
+        with tempfile.TemporaryDirectory(prefix="artifact-") as handle:
             yield Path(handle)

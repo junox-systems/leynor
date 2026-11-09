@@ -13,5 +13,6 @@ fi
 
 echo "Running migrations..."
 uv run python manage.py migrate --noinput
+uv run python manage.py artifact_bucket --create
 
 exec uv run python manage.py qcluster

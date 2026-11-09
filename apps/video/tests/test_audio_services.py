@@ -4,12 +4,15 @@ No torch, no whisper, no ffmpeg: the seam is the point.
 """
 
 import json
+import tempfile
 import wave
 
 import pytest
 
 from apps.video.spec import ReelSpec
-from apps.runs.artifacts import FileStore
+from django.core.files.storage import InMemoryStorage
+
+from apps.runs.artifacts import ArtifactStore
 from apps.video.audio.cues import VoiceResult
 from apps.video.audio.mix import MixReport
 from apps.video.audio.services import VoiceError, run_voice
@@ -71,7 +74,7 @@ def cues():
 
 
 def test_run_voice_writes_master_and_cue_map(tmp_path, spec):
-    store = FileStore(tmp_path)
+    store = ArtifactStore(storage=InMemoryStorage())
     tts = FakeTTS()
 
     result = run_voice(
@@ -94,14 +97,15 @@ def test_run_voice_refuses_a_cue_count_mismatch(tmp_path, spec):
     with pytest.raises(VoiceError):
         run_voice(
             spec,
-            FileStore(tmp_path),
+            ArtifactStore(storage=InMemoryStorage()),
             tts=FakeTTS(),
             mixer=fake_mixer,
             aligner=FakeAligner(cues()[:1]),
         )
 
 
-def test_run_voice_removes_its_scratch(tmp_path, spec):
-    store = FileStore(tmp_path)
+def test_run_voice_removes_its_scratch(tmp_path, spec, monkeypatch):
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    store = ArtifactStore(storage=InMemoryStorage())
     run_voice(spec, store, tts=FakeTTS(), mixer=fake_mixer, aligner=FakeAligner(cues()))
-    assert [p.name for p in tmp_path.iterdir() if p.name.startswith("tmp")] == []
+    assert list(tmp_path.iterdir()) == []

@@ -3,10 +3,9 @@
 Tests run django-q2 inline (`sync: True`), so queueing a task runs it.
 """
 
-import tempfile
 from unittest import mock
 
-from django.test import TestCase, override_settings
+from django.test import TestCase
 
 from apps.brands.models import Audience, Brand
 from apps.instagram import services, tasks
@@ -16,7 +15,6 @@ from apps.instagram.tests import fakes
 from apps.instagram.tests.test_views import make_campaign, make_org, make_user
 
 
-@override_settings(APP_ARTIFACT_ROOT=tempfile.mkdtemp(prefix="leynor-test-"))
 class RouteTaskTestCase(TestCase):
     def setUp(self):
         self.user = make_user("alice")
@@ -118,10 +116,10 @@ class AdvanceTaskTests(RouteTaskTestCase):
             tasks.queue_advance(reel)
         gates = {gate.step: gate for gate in reel.gates.all()}
         assert len(gates["look"].output["visuals"]) == 4
-        assert reel.store().path("assets/visuals/s1.svg").is_file()
+        assert reel.store().exists("assets/visuals/s1.svg")
         assert gates["voice"].result == GateResult.AUTO
         assert gates["print"].awaiting_person
-        assert reel.store().path("out.mp4").is_file()
+        assert reel.store().exists("out.mp4")
 
     def test_a_step_that_fails_stops_the_route_and_can_be_tried_again(self):
         self.pitched()
@@ -175,3 +173,62 @@ class AdvanceTaskTests(RouteTaskTestCase):
         with mock.patch.object(tasks, "async_task") as queued:
             tasks.queue_advance(reel)
         assert queued.call_args.kwargs["cluster"].endswith("-heavy")
+
+
+class ArtifactTests(RouteTaskTestCase):
+    def test_print_refuses_inputs_that_changed_or_vanished(self):
+        store = self.picked().store()
+        sha = store.put("assets/visuals/s1.svg", "<svg/>")
+        services._verify(store, {"assets/visuals/s1.svg": sha})  # unchanged: passes
+
+        store.put("assets/visuals/s1.svg", "<svg>edited</svg>")
+        with self.assertRaisesMessage(services.StepFailed, "s1.svg changed since it was checked"):
+            services._verify(store, {"assets/visuals/s1.svg": sha})
+        with self.assertRaisesMessage(services.StepFailed, "assets/voice.wav is missing"):
+            services._verify(store, {services.VOICE_KEY: sha})
+
+    def test_print_refuses_a_voice_that_changed_after_voice_checked_it(self):
+        reel = self.picked()
+        voice, print_ = fakes.engines()
+        with voice, print_:
+            reel.gates.get(step=Step.BOARD).decide(GateResult.APPROVED, self.user)
+            tasks.queue_advance(reel)  # Look runs for real
+
+        def run_voice(spec, store):
+            store.put(services.VOICE_KEY, b"RIFF voice")
+            return mock.Mock(
+                max_silence=0.2,
+                loudness=-14.0,
+                model_dump=lambda: {"cues": [], "duration": 61.0, "loudness": -14.0},
+            )
+
+        with mock.patch("apps.video.audio.services.run_voice", run_voice):
+            output = services.voice_step(reel)
+        gate = reel.gates.get(step=Step.VOICE)
+        gate.output = output
+        gate.save()
+
+        with (
+            mock.patch("apps.video.services.run_compose", return_value=[]) as compose,
+            mock.patch("apps.video.services.run_print") as print_,
+        ):
+            services.print_step(reel)  # unchanged: renders
+            assert print_.called
+
+            reel.store().put(services.VOICE_KEY, b"RIFF edited")
+            compose.reset_mock()
+            with self.assertRaisesMessage(services.StepFailed, "voice.wav changed"):
+                services.print_step(reel)
+            gate.output = {k: v for k, v in output.items() if k != "sha"}
+            gate.save()
+            with self.assertRaisesMessage(services.StepFailed, "Run Look or Voice again"):
+                services.print_step(reel)
+            compose.assert_not_called()
+
+    def test_deleting_a_reel_deletes_its_files_after_commit(self):
+        reel = self.picked()
+        store = reel.store()
+        store.put("out.mp4", b"mp4")
+        with self.captureOnCommitCallbacks(execute=True):
+            reel.delete()
+        assert not store.exists("out.mp4")

@@ -1,8 +1,7 @@
-import tempfile
 from unittest import mock
 
 from django.contrib.messages import get_messages
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.urls import reverse
 
 from apps.campaigns.models import Campaign
@@ -73,7 +72,6 @@ class AccessTests(ReelViewTestCase):
         assert self.client.get(self.detail).status_code == 404
 
 
-@override_settings(APP_ARTIFACT_ROOT=tempfile.mkdtemp(prefix="leynor-test-"))
 class IdeaToReelTests(ReelViewTestCase):
     def submit_idea(self, **data):
         payload = {"idea": "Why habits die on day three", "goal": "saves", "target_seconds": 60}
@@ -233,7 +231,6 @@ class GateTests(ReelViewTestCase):
         assert 'value="reject"' not in body
 
 
-@override_settings(APP_ARTIFACT_ROOT=tempfile.mkdtemp(prefix="leynor-test-"))
 class MediaTests(ReelViewTestCase):
     def setUp(self):
         super().setUp()
@@ -255,6 +252,11 @@ class MediaTests(ReelViewTestCase):
         tail = self.client.get(self.url, headers={"Range": "bytes=-3"})
         assert tail.content == b"789"
         assert self.client.get(self.url, headers={"Range": "bytes=50-"}).status_code == 416
+
+    def test_a_file_removed_mid_request_is_a_404(self):
+        storage = self.reel.store().storage
+        with mock.patch.object(type(storage), "size", side_effect=FileNotFoundError):
+            assert self.client.get(self.url, headers={"Range": "bytes=2-5"}).status_code == 404
 
     def test_paths_outside_the_reel_and_other_tenants_are_404(self):
         escape = reverse("reel_media", args=[self.reel.pk, "../x"])

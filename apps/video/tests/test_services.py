@@ -4,7 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from apps.runs.artifacts import FileStore
+from django.core.files.storage import InMemoryStorage
+
+from apps.runs.artifacts import ArtifactStore
 from apps.video import services
 from apps.video.audio.cues import CueData
 from apps.video.encode import RenderResult, VideoError
@@ -32,7 +34,7 @@ def cues():
 
 
 def test_run_compose_writes_index_and_scenes(tmp_path, spec, cues):
-    store = FileStore(tmp_path)
+    store = ArtifactStore(storage=InMemoryStorage())
     visuals = {1: ["assets/visuals/s1.svg"], 2: ["assets/visuals/s2.svg"]}
     for key in ("assets/visuals/s1.svg", "assets/visuals/s2.svg"):
         store.put(key, "<svg/>")
@@ -46,7 +48,7 @@ def test_run_compose_writes_index_and_scenes(tmp_path, spec, cues):
 
 
 def test_run_print_refuses_a_dirty_check(tmp_path, monkeypatch):
-    store = FileStore(tmp_path)
+    store = ArtifactStore(storage=InMemoryStorage())
     store.put("index.html", "<html></html>")
     monkeypatch.setattr(services, "check", lambda scratch: "2 error(s), 1 warning(s)")
 
@@ -55,7 +57,7 @@ def test_run_print_refuses_a_dirty_check(tmp_path, monkeypatch):
 
 
 def test_run_print_stores_the_render(tmp_path, monkeypatch):
-    store = FileStore(tmp_path)
+    store = ArtifactStore(storage=InMemoryStorage())
     store.put("index.html", "<html></html>")
 
     def fake_encode(workdir: Path, quality="delivery") -> Path:

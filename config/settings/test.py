@@ -73,6 +73,9 @@ STORAGES = {
     "staticfiles": {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
+    "artifacts": {
+        "BACKEND": "django.core.files.storage.InMemoryStorage",
+    },
 }
 
 # Run django-q2 tasks inline (synchronously) during tests
