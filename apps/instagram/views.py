@@ -271,11 +271,7 @@ def _ranged(request, store, name, content_type):
         response = HttpResponse(status=416)
         response["Content-Range"] = f"bytes */{size}"
         return response
-    # shortcut: S3File fetches the whole object before seek, fine for one reel's
-    # files on the stack's network; use ranged GetObject if renders grow past ~100 MB.
-    with store.open(name) as handle:
-        handle.seek(start)
-        body = handle.read(end - start + 1)
+    body = store.read_range(name, start, end)
     response = HttpResponse(body, status=206, content_type=content_type)
     response["Content-Range"] = f"bytes {start}-{end}/{size}"
     return response

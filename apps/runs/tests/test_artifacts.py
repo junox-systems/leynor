@@ -55,6 +55,22 @@ def test_a_failed_overwrite_keeps_the_old_file():
     assert store.get("out.mp4") == b"old"
 
 
+def test_read_range_reads_only_those_bytes(store):
+    store.put("out.mp4", "0123456789")
+    assert store.read_range("out.mp4", 2, 5) == b"2345"
+
+
+def test_read_range_asks_s3_for_the_range_only():
+    obj = mock.Mock()
+    obj.get.return_value = {"Body": mock.Mock(read=lambda: b"2345")}
+    storage = mock.Mock(_normalize_name=lambda name: name)
+    storage.bucket.Object.return_value = obj
+
+    assert ArtifactStore("reel", storage).read_range("out.mp4", 2, 5) == b"2345"
+    storage.bucket.Object.assert_called_once_with("reel/out.mp4")
+    obj.get.assert_called_once_with(Range="bytes=2-5")
+
+
 def test_get_missing_raises(store):
     with pytest.raises(ArtifactMissing):
         store.get("nope.txt")

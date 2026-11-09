@@ -15,6 +15,7 @@ from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 from typing import IO, Protocol, runtime_checkable
 
+from botocore.exceptions import ClientError
 from django.core.files.base import ContentFile
 from django.core.files.storage import Storage, storages
 
@@ -77,6 +78,21 @@ class ArtifactStore:
         if not self.storage.exists(name):
             raise ArtifactMissing(key)
         return self.storage.open(name, "rb")
+
+    def read_range(self, key: str, start: int, end: int) -> bytes:
+        """Bytes start..end inclusive, without downloading the whole file from S3."""
+        name = self.name(key)
+        if not hasattr(self.storage, "bucket"):
+            with self.open(key) as handle:
+                handle.seek(start)
+                return handle.read(end - start + 1)
+        try:
+            obj = self.storage.bucket.Object(self.storage._normalize_name(name))
+            return obj.get(Range=f"bytes={start}-{end}")["Body"].read()
+        except ClientError as exc:
+            if exc.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
+                raise ArtifactMissing(key) from exc
+            raise
 
     def exists(self, key: str) -> bool:
         return self.storage.exists(self.name(key))
